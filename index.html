@@ -653,9 +653,9 @@ function setLive(label,stopLabel){$('.live-st').innerHTML='<span class="rdot"></
 function runMeter(){const cv=$('#meter'),buf=new Float32Array(1024);
  const loop=()=>{if(!REC.on)return;const t=REC.timeFn();$('#timer').textContent=REC.total?`${fmt(t)} / ${fmt(REC.total)}`:fmt(t);if(t>=(REC.total||REC.max)){finishRec();return}
   const r=cv.getBoundingClientRect(),dpr=devicePixelRatio||1;if(cv.width!==Math.round(r.width*dpr)){cv.width=Math.round(r.width*dpr);cv.height=Math.round(r.height*dpr)}const c=cv.getContext('2d');
-  let lv=0;if(REC.an){REC.an.getFloatTimeDomainData(buf);let a=0;for(let i=0;i<buf.length;i++)a+=buf[i]*buf[i];lv=Math.min(1,Math.sqrt(a/buf.length)*5)}
+  let lv=0;if(REC.an){REC.an.getFloatTimeDomainData(buf);let a=0;for(let i=0;i<buf.length;i++)a+=buf[i]*buf[i];const db=20*Math.log10(Math.sqrt(a/buf.length)+1e-8);lv=Math.max(0,Math.min(1,(db+58)/48))}
   REC.levels.push(lv);const n=Math.floor(r.width/6);if(REC.levels.length>n)REC.levels.splice(0,REC.levels.length-n);
-  c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,r.width,r.height);c.fillStyle='#3E7D6B';REC.levels.forEach((v,i)=>{const h=Math.max(2,v*(r.height-16));c.fillRect(r.width-(REC.levels.length-i)*6+1,(r.height-h)/2,3,h)});
+  c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,r.width,r.height);c.fillStyle='#3E7D6B';REC.levels.forEach((v,i)=>{const h=Math.max(3,v*(r.height-12));c.globalAlpha=.35+.65*v;c.fillRect(r.width-(REC.levels.length-i)*6+1,(r.height-h)/2,4,h)});c.globalAlpha=1;
   REC.raf=requestAnimationFrame(loop)};loop()}
 const pickAudioMime=()=>['audio/webm;codecs=opus','audio/mp4','audio/webm','audio/ogg;codecs=opus'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t));
 const isVideoFile=f=>/^video\//.test(f.type)||/\.(mov|mp4|m4v|3gp|webm)$/i.test(f.name)&&!/^audio\//.test(f.type);
@@ -666,10 +666,15 @@ async function importMedia(f){
  stopAll();
  if(!video){await loadAudio(f,'上傳');return}
  // 1) quick path: decode the video's audio track directly (works for most iPhone MOV/MP4 in Safari)
- if(f.size<=150*1048576){
+ if(f.size<=200*1048576){
   if(await loadAudio(f,'影片',true))return;
-  let why='';try{const ab=await f.arrayBuffer();let n=1;for(let i=0;i<n;i++){const m4a=remuxAudio(ab,i);n=remuxAudio.count;if(await loadAudio(m4a,'影片',true))return}why=`${n} 條音軌都無法解碼`}catch(e){why=e.message}
-  REC.remuxWhy=why;
+  const why=[];let ab;try{ab=await f.arrayBuffer()}catch(e){why.push('檔案讀取失敗')}
+  if(ab){
+   let n=1;
+   for(const brand of ['qt  ','M4A ']){for(let i=0;i<n;i++){try{const b=remuxAudio(ab,i,brand);n=remuxAudio.count;if(await loadAudio(b,'影片',true))return;why.push('音軌格式無法解碼')}catch(e){why.push(e.message);break}}}
+   for(let i=0;i<n;i++){try{const r=await webcodecsAAC(ab,i);if(setupEditor(r.mono,r.sr,'影片'))return}catch(e){why.push(e.message)}}
+  }
+  REC.remuxWhy=[...new Set(why)].slice(0,3).join('、');
  }
  REC.srcInfo=`${f.type||'未知格式'}・${(f.size/1048576).toFixed(1)} MB`;
  // 2) fallback: play the video silently and capture its sound in real time
@@ -677,7 +682,7 @@ async function importMedia(f){
 }
 
 // Pull the audio track out of an iPhone .mov/.mp4 and re-wrap it as an .m4a that every browser can decode.
-function remuxAudio(ab,pick=0){
+function remuxAudio(ab,pick=0,brand='qt  '){
  const u=new Uint8Array(ab),v=new DataView(ab),tt=(p)=>String.fromCharCode(u[p],u[p+1],u[p+2],u[p+3]);
  const boxes=(s,e)=>{const out=[];let p=s;while(p+8<=e){let size=v.getUint32(p),h=8;const type=tt(p+4);if(size===1){size=Number(v.getBigUint64(p+8));h=16}else if(size===0)size=e-p;if(size<h||p+size>e)break;out.push({type,s:p,e:p+size,h});p+=size}return out};
  const kid=(b,t)=>boxes(b.s+b.h,b.e).find(x=>x.type===t);
@@ -688,7 +693,7 @@ function remuxAudio(ab,pick=0){
  if(!mvhd||!sounds.length)throw new Error('這支影片沒有音軌');
  remuxAudio.count=sounds.length;const trak=sounds[pick];if(!trak)throw new Error('找不到第 '+(pick+1)+' 條音軌');
  const stbl=path(trak,['mdia','minf','stbl']);const co=stbl&&(kid(stbl,'stco')||kid(stbl,'co64'));if(!co)throw new Error('找不到音訊位置表');
- const ftyp=new Uint8Array(28),fv=new DataView(ftyp.buffer);fv.setUint32(0,28);'ftypM4A \0\0\0\0M4A isommp42'.split('').forEach((c,i)=>ftyp[4+i]=c.charCodeAt(0));
+ const fstr=brand==='qt  '?'ftypqt  \0\0\0\0qt  ':'ftypM4A \0\0\0\0M4A isommp42',ftyp=new Uint8Array(4+fstr.length);new DataView(ftyp.buffer).setUint32(0,ftyp.length);fstr.split('').forEach((c,i)=>ftyp[4+i]=c.charCodeAt(0));
  const mv=u.slice(mvhd.s,mvhd.e),tk=u.slice(trak.s,trak.e),moovSize=8+mv.length+tk.length;
  const moovH=new Uint8Array(8),mh=new DataView(moovH.buffer);mh.setUint32(0,moovSize);'moov'.split('').forEach((c,i)=>moovH[4+i]=c.charCodeAt(0));
  const stsz=kid(stbl,'stsz'),stsc=kid(stbl,'stsc');if(!stsz||!stsc)throw new Error('找不到音訊取樣表');
@@ -697,16 +702,52 @@ function remuxAudio(ab,pick=0){
  const nC=v.getUint32(co.s+12),chunkOff=i=>co.type==='stco'?v.getUint32(co.s+16+i*4):Number(v.getBigUint64(co.s+16+i*8));
  const parts=[];let si=0,total=0,ei=0;
  for(let c=1;c<=nC;c++){while(ei+1<ents.length&&ents[ei+1][0]<=c)ei++;const spc=ents[ei]?ents[ei][1]:0;let len=0;for(let k=0;k<spc&&si<nS;k++,si++)len+=sizeOf(si);const off=chunkOff(c-1);if(off+len>u.length)throw new Error('音訊資料不完整');parts.push([off,len]);total+=len}
- const base=28+moovSize+8,tv=new DataView(tk.buffer),r=co.s-trak.s;let cum=0;
+ const base=ftyp.length+moovSize+8,tv=new DataView(tk.buffer),r=co.s-trak.s;let cum=0;
  parts.forEach(([,len],i)=>{if(co.type==='stco')tv.setUint32(r+16+i*4,base+cum);else tv.setBigUint64(r+16+i*8,BigInt(base+cum));cum+=len});
  const body=new Uint8Array(total);let p2=0;for(const[off,len]of parts){body.set(u.subarray(off,off+len),p2);p2+=len}
  const md=new Uint8Array(8),mdv=new DataView(md.buffer);mdv.setUint32(0,8+total);'mdat'.split('').forEach((c,i)=>md[4+i]=c.charCodeAt(0));
- return new Blob([ftyp,moovH,mv,tk,md,body],{type:'audio/mp4'});
+ return new Blob([ftyp,moovH,mv,tk,md,body],{type:brand==='qt  '?'video/quicktime':'audio/mp4'});
+}
+// Decode the AAC frames directly with the browser's audio decoder (skips container parsing in the OS).
+function aacTrack(ab,pick){
+ const u=new Uint8Array(ab),v=new DataView(ab),tt=p=>String.fromCharCode(u[p],u[p+1],u[p+2],u[p+3]);
+ const boxes=(s,e)=>{const out=[];let p=s;while(p+8<=e){let size=v.getUint32(p),h=8;const type=tt(p+4);if(size===1){size=Number(v.getBigUint64(p+8));h=16}else if(size===0)size=e-p;if(size<h||p+size>e)break;out.push({type,s:p,e:p+size,h});p+=size}return out};
+ const kid=(b,t)=>boxes(b.s+b.h,b.e).find(x=>x.type===t),path=(b,ts)=>{let c=b;for(const t of ts)c=c&&kid(c,t);return c};
+ const moov=boxes(0,u.length).find(b=>b.type==='moov');if(!moov)throw new Error('找不到影片目錄');
+ const sounds=boxes(moov.s+moov.h,moov.e).filter(b=>b.type==='trak').filter(t=>{const h=path(t,['mdia','hdlr']);return h&&tt(h.s+16)==='soun'});
+ const trak=sounds[pick];if(!trak)throw new Error('沒有音軌');aacTrack.count=sounds.length;
+ const stbl=path(trak,['mdia','minf','stbl']),stsd=kid(stbl,'stsd'),stsz=kid(stbl,'stsz'),stsc=kid(stbl,'stsc'),co=kid(stbl,'stco')||kid(stbl,'co64');
+ if(!stsd||!stsz||!stsc||!co)throw new Error('音訊表不完整');
+ let es=-1;for(let i=stsd.s;i<stsd.e-4;i++){if(u[i]===0x65&&u[i+1]===0x73&&u[i+2]===0x64&&u[i+3]===0x73){es=i+8;break}}
+ if(es<0)throw new Error('不是 AAC 音訊');
+ const rd=p=>{const tag=u[p++];let len=0,b,k=0;do{b=u[p++];len=(len<<7)|(b&0x7f)}while((b&0x80)&&++k<4);return{tag,len,p}};
+ let d=rd(es),p=d.p+2;const fl=u[p++];if(fl&0x80)p+=2;if(fl&0x40)p+=1+u[p];if(fl&0x20)p+=2;
+ d=rd(p);if(d.tag!==4)throw new Error('AAC 設定讀取失敗');p=d.p+13;d=rd(p);if(d.tag!==5)throw new Error('AAC 設定讀取失敗');
+ const asc=u.slice(d.p,d.p+d.len),ot=asc[0]>>3,fi=((asc[0]&7)<<1)|(asc[1]>>7),ch=(asc[1]>>3)&15;
+ const sr=[96000,88200,64000,48000,44100,32000,24000,22050,16000,12000,11025,8000,7350][fi];if(!sr)throw new Error('取樣率不明');
+ const fixed=v.getUint32(stsz.s+12),nS=v.getUint32(stsz.s+16),sizeOf=i=>fixed||v.getUint32(stsz.s+20+i*4);
+ const nE=v.getUint32(stsc.s+12),ents=[];for(let j=0;j<nE;j++){const o=stsc.s+16+j*12;ents.push([v.getUint32(o),v.getUint32(o+4)])}
+ const nC=v.getUint32(co.s+12),off=i=>co.type==='stco'?v.getUint32(co.s+16+i*4):Number(v.getBigUint64(co.s+16+i*8));
+ const samples=[];let si=0,ei=0;
+ for(let c=1;c<=nC;c++){while(ei+1<ents.length&&ents[ei+1][0]<=c)ei++;let o=off(c-1);for(let k=0;k<ents[ei][1]&&si<nS;k++,si++){const z=sizeOf(si);samples.push(u.subarray(o,o+z));o+=z}}
+ return{asc,ot,sr,ch,samples};
+}
+async function webcodecsAAC(ab,pick){
+ if(!('AudioDecoder' in window)||!('EncodedAudioChunk' in window))throw new Error('瀏覽器沒有內建解碼器');
+ const t=aacTrack(ab,pick);const cfg={codec:'mp4a.40.'+(t.ot||2),sampleRate:t.sr,numberOfChannels:t.ch||2,description:t.asc};
+ const ok=await AudioDecoder.isConfigSupported(cfg).catch(()=>({supported:false}));if(!ok.supported)throw new Error('解碼器不支援 '+cfg.codec);
+ const outs=[];let err=null,rate=t.sr;
+ const dec=new AudioDecoder({output:a=>{try{const n=a.numberOfFrames,c=a.numberOfChannels,m=new Float32Array(n),tmp=new Float32Array(n);for(let k=0;k<c;k++){a.copyTo(tmp,{planeIndex:k,format:'f32-planar'});for(let i=0;i<n;i++)m[i]+=tmp[i]/c}outs.push(m);rate=a.sampleRate}catch(e){err=e}a.close()},error:e=>{err=e}});
+ dec.configure(cfg);let ts=0;const step=1024/t.sr*1e6;
+ for(const smp of t.samples){dec.decode(new EncodedAudioChunk({type:'key',timestamp:Math.round(ts),data:smp}));ts+=step}
+ await dec.flush();dec.close();if(err)throw err;
+ let len=0;outs.forEach(o=>len+=o.length);if(!len)throw new Error('解碼結果是空的');
+ const mono=new Float32Array(len);let q=0;outs.forEach(o=>{mono.set(o,q);q+=o.length});return{mono,sr:rate};
 }
 async function extractFromVideo(file){
  if(!window.MediaRecorder){toast('這個瀏覽器無法從影片擷取聲音，請先把影片轉成音檔再上傳','err');return}
  const url=URL.createObjectURL(file),v=document.createElement('video');
- v.src=url;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.style.cssText='position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0;pointer-events:none';document.body.appendChild(v);
+ v.src=url;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.style.cssText='display:block;width:100%;max-width:300px;max-height:220px;margin:0 auto 14px;border-radius:12px;background:#000';$('#meter').before(v);
  const drop=()=>{v.pause();v.removeAttribute('src');v.load();v.remove();URL.revokeObjectURL(url)};
  try{await new Promise((res,rej)=>{v.onloadedmetadata=res;v.onerror=()=>rej(new Error('無法讀取這支影片（'+(REC.srcInfo||'')+(REC.remuxWhy?'；'+REC.remuxWhy:'')+'），請截圖這段訊息給開發者'));setTimeout(()=>rej(new Error('讀取影片逾時，請再試一次')),20000)})}catch(e){drop();toast(e.message,'err');return}
  let node,dest;try{const ctx=AC();node=ctx.createMediaElementSource(v);dest=ctx.createMediaStreamDestination();node.connect(dest);node.connect(ctx.destination);REC.an=ctx.createAnalyser();REC.an.fftSize=1024;node.connect(REC.an)}catch(e){drop();toast('這個瀏覽器無法從影片擷取聲音，請先轉成音檔','err');return}
@@ -715,7 +756,7 @@ async function extractFromVideo(file){
  mr.ondataavailable=e=>{if(e.data&&e.data.size)REC.chunks.push(e.data)};
  mr.onerror=()=>{REC.aborted=true;finishRec()};
  mr.onstop=async()=>{const chunks=REC.chunks;cleanupRec();const blob=new Blob(chunks,{type:mr.mimeType||mime||'audio/webm'});if(!blob.size){toast('沒有擷取到聲音，這支影片可能沒有音軌','err');showState('idle');return}await loadAudio(blob,'影片')};
- v.onended=()=>finishRec();v.onerror=()=>{toast('影片播放中斷，已保留擷取到的部分','err');finishRec()};
+ v.onended=()=>finishRec();v.addEventListener('pause',()=>{if(REC.on&&!REC.waiting&&!v.ended)setTimeout(()=>{if(REC.on&&v.paused&&!v.ended)v.play().catch(()=>{})},150)});v.onerror=()=>{toast('影片播放中斷，已保留擷取到的部分','err');finishRec()};
  // iPhone Safari only lets video play + audio start inside a fresh tap, so ask for one.
  REC.waiting=true;setLive('影片已讀取，準備擷取聲音','取消');$('#liveHint').textContent=`無法直接取出音軌（${REC.remuxWhy||'格式不支援'}），改用邊播邊收音。結束後可以完整試聽，再決定保留哪一段。`;$('#timer').textContent=`0:00 / ${fmt(REC.total)}`;
  const go=$('#liveGo');go.innerHTML=ic('play')+'開始擷取聲音';go.hidden=false;showState('live');go.focus();
@@ -730,8 +771,11 @@ function cleanupRec(){REC.on=false;const lh=$('#liveHint');if(lh)lh.textContent=
 const ED={s:null,sr:0,dur:0,st:0,en:0,head:0,ab:null,src:null,playing:false,t0:0,off:0,raf:0,dirty:false,pkN:0,pk:null};
 async function loadAudio(blob,origin,quiet){
  let buf;try{buf=await decodeBlob(blob)}catch{if(quiet)return false;toast('無法讀取這個檔案的聲音，請換成 MP3、M4A、WAV 或手機拍的影片','err');showState('idle');return false}
- if(buf.duration<.3){toast('這段聲音太短了，至少要 0.3 秒','err');showState('idle');return true}
- Object.assign(ED,{s:toMono(buf),sr:buf.sampleRate,dur:buf.duration,head:0,dirty:true,pk:null,pkN:0});
+ return setupEditor(toMono(buf),buf.sampleRate,origin);
+}
+function setupEditor(mono,sr,origin){
+ const dur=mono.length/sr;if(dur<.3){toast('這段聲音太短了，至少要 0.3 秒','err');showState('idle');return true}
+ Object.assign(ED,{s:mono,sr,dur,head:0,dirty:true,pk:null,pkN:0});
  const ab=AC().createBuffer(1,ED.s.length,ED.sr);ab.getChannelData(0).set(ED.s);ED.ab=ab;
  [ED.st,ED.en]=autoTrim(ED.s,ED.sr);ED.head=ED.st;
  $('#edOrigin').textContent=origin==='錄音'?'RECORDED':origin==='影片'?'FROM VIDEO':'UPLOADED';
