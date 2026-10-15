@@ -174,6 +174,15 @@ textarea{resize:vertical;min-height:70px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .err{color:var(--red);font-size:13px}
 .cover-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.crop-frame{position:relative;width:100%;max-width:420px;aspect-ratio:252/150;overflow:hidden;border-radius:6px;border:1px solid var(--ink);cursor:grab;touch-action:none;background:#E4DACA;user-select:none;-webkit-user-select:none}
+.crop-frame:focus-visible{outline:2.5px solid var(--lake-d);outline-offset:3px}
+.crop-frame img{position:absolute;left:0;top:0;max-width:none;pointer-events:none;-webkit-user-drag:none}
+.crop-frame .crop-tip{position:absolute;left:8px;bottom:8px;font-size:12px;background:rgba(67,85,77,.75);color:#fff;padding:2px 8px;border-radius:999px;pointer-events:none}
+.zoom{display:flex;align-items:center;gap:10px;max-width:420px;margin:4px 0 6px}
+.zoom input{flex:1;min-height:44px;accent-color:var(--lake-d)}
+.chip-x{display:inline-grid;place-items:center;width:28px;height:28px;margin-left:-6px;margin-right:4px;border:none;border-radius:50%;background:var(--clay);color:#fff;cursor:pointer;padding:0;vertical-align:middle}
+.chip-x .ic{width:14px;height:14px;stroke-width:2.2}
+.tag-add{margin-top:10px}
 .cover-thumb{width:64px;height:64px;border-radius:10px;background:var(--bg) center/cover;box-shadow:inset 0 0 0 1px var(--line)}
 .hint{font-size:13px;color:var(--ink-s)}
 .preview-col{position:sticky;top:76px;display:grid;gap:14px}
@@ -464,6 +473,9 @@ const NAMES={
 };
 const TAGS=['安心','開心','想念','好笑','撒嬌','平靜','興奮','睏睏','驕傲'];
 const pad=n=>String(n).padStart(3,'0');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const typeName=r=>(r&&r.type==='custom'&&r.customType)?r.customType:((TMAP[r&&r.type]||{}).name||'');
+const tagPool={get(){try{const v=JSON.parse(store.get('lsa-tags')||'null');if(Array.isArray(v))return v.filter(x=>typeof x==='string')}catch{}return TAGS.slice()},set(a){store.set('lsa-tags',JSON.stringify(a))}};
 const uid=()=>(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2));
 const today=()=>{const d=new Date(),z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`};
 const fmt=(t,dec)=>{t=Math.max(0,t||0);const m=Math.floor(t/60),s=t-m*60;return dec?`${m}:${s.toFixed(1).padStart(4,'0')}`:`${m}:${String(Math.floor(s)).padStart(2,'0')}`};
@@ -532,7 +544,7 @@ function drawCard(c,W,H,r,o={}){
  // name
  c.font=`700 ${19*u}px "LXGW WenKai TC",serif`;const nl=wrapText(c,r.name||'未命名標本',W-48*u,1);c.fillText(nl[0],24*u,232*u);
  c.font=`500 ${7.5*u}px "IBM Plex Mono",monospace`;c.fillStyle='#5f6f68';
- const meta=[(TMAP[r.type]||{}).name,fmt(r.duration,true),r.pet?('· '+r.pet):''].filter(Boolean).join('  ');
+ const meta=[typeName(r),fmt(r.duration,true),r.pet?('· '+r.pet):''].filter(Boolean).join('  ');
  c.font=`400 ${9*u}px "LXGW WenKai TC",sans-serif`;c.fillText(meta,24*u,249*u);
  // waveform
  const pk=r.peaks||[],n=pk.length||1,wx=24*u,ww=W-48*u,wy=278*u,wh=30*u,bw=ww/n,pr=o.progress;
@@ -547,33 +559,67 @@ function drawCard(c,W,H,r,o={}){
  c.textAlign='center';c.font=`600 ${6*u}px "IBM Plex Mono",monospace`;c.fillText('ARCHIVED',0,-5*u);c.font=`700 ${8.5*u}px "LXGW WenKai TC",serif`;c.fillText('聲音標本',0,6*u);c.font=`500 ${5*u}px "IBM Plex Mono",monospace`;c.fillText((r.date||'').slice(0,4),0,13.5*u);c.restore();
  c.restore();
 }
-function cardMeta(r){return{no:r.no,name:r.name,date:r.date,type:r.type,story:r.story,pet:r.pet,peaks:r.peaks,duration:r.duration}}
+function cardMeta(r){return{no:r.no,name:r.name,date:r.date,type:r.type,customType:r.customType,story:r.story,pet:r.pet,peaks:r.peaks,duration:r.duration}}
 
 /* ---------- form component ---------- */
 function formHTML(p){return `
 <div class="fld"><label for="${p}name">標本名稱 <em>必填</em></label><div class="row"><input type="text" id="${p}name" maxlength="40" autocomplete="off" aria-describedby="${p}nameErr"><button type="button" class="btn ghost sm" id="${p}sug">${ic('wand')}幫我想名字</button></div><small class="err" id="${p}nameErr" hidden>請幫這個標本取個名字</small></div>
 <div class="grid2"><div class="fld"><label for="${p}pet">寵物名稱</label><input type="text" id="${p}pet" maxlength="20" autocomplete="off"></div><div class="fld"><label for="${p}date">錄製日期</label><input type="date" id="${p}date"></div></div>
 <fieldset class="fld"><legend>聲音類型</legend><div class="chips" id="${p}type">${TYPES.map(t=>`<label class="chip"><input type="radio" name="${p}type" value="${t.id}"><span>${t.name}</span></label>`).join('')}</div></fieldset>
+<div class="fld" id="${p}ctypeWrap" hidden><label for="${p}ctype">自訂聲音的名稱</label><input type="text" id="${p}ctype" maxlength="10" autocomplete="off" placeholder="例如：打噴嚏、伸懶腰、碎碎念"></div>
 <div class="fld"><label for="${p}story">一句小故事</label><textarea id="${p}story" maxlength="60" rows="2" placeholder="例如：每天下午三點，牠都會在窗邊睡著。"></textarea></div>
-<fieldset class="fld"><legend>情緒標籤 <small>由你來選，不是 AI 判斷</small></legend><div class="chips" id="${p}tags">${TAGS.map(t=>`<label class="chip"><input type="checkbox" value="${t}"><span>${t}</span></label>`).join('')}</div></fieldset>
-<div class="fld"><span class="lbl">封面照片</span><div class="cover-row"><div class="cover-thumb" id="${p}thumb"></div><label class="btn ghost sm file">${ic('image')}選擇照片<input type="file" accept="image/*" id="${p}cover" class="sr"></label><button type="button" class="btn text sm" id="${p}coverDel" hidden>移除照片</button></div><small class="hint">會自動裁成卡片比例，沒放照片就用狗狗線稿。</small></div>`}
+<fieldset class="fld"><legend>情緒標籤 <small>由你來選，不是 AI 判斷</small></legend><div class="chips" id="${p}tags"></div>
+<div class="row tag-add"><input type="text" id="${p}newtag" maxlength="8" autocomplete="off" placeholder="新增自己的標籤" aria-label="新增情緒標籤"><button type="button" class="btn ghost sm" id="${p}addtag">${ic('check')}新增</button><button type="button" class="btn text sm" id="${p}mgr" aria-pressed="false">${ic('edit')}管理標籤</button></div></fieldset>
+<div class="fld"><span class="lbl">封面照片</span>
+<div id="${p}crop" hidden><div class="crop-frame" id="${p}frame" tabindex="0" role="application" aria-label="拖曳照片調整位置，方向鍵也可以移動"><img id="${p}cimg" alt=""><span class="crop-tip">拖曳調整位置</span></div>
+<label class="zoom">${ic('search')}<input type="range" min="1" max="3" step="0.01" value="1" id="${p}zoom" aria-label="照片縮放"></label></div>
+<div class="cover-row"><label class="btn ghost sm file">${ic('image')}<span id="${p}coverLbl">選擇照片</span><input type="file" accept="image/*" id="${p}cover" class="sr"></label><button type="button" class="btn text sm" id="${p}coverDel" hidden>移除照片</button></div>
+<small class="hint">放進照片後，可以在框裡拖曳、縮放。沒放照片就用狗狗線稿。</small></div>`}
 function bindForm(root,p,data,onChange){
  root.innerHTML=formHTML(p);
- const f={name:$('#'+p+'name'),pet:$('#'+p+'pet'),date:$('#'+p+'date'),story:$('#'+p+'story')};
- let cover=data.cover||null,thumbUrl=null;
- f.name.value=data.name||'';f.pet.value=data.pet||'';f.date.value=data.date||today();f.story.value=data.story||'';
+ const $p=id=>$('#'+p+id),f={name:$p('name'),pet:$p('pet'),date:$p('date'),story:$p('story'),ctype:$p('ctype')};
+ const fire=()=>onChange&&onChange(get());
+ f.name.value=data.name||'';f.pet.value=data.pet||'';f.date.value=data.date||today();f.story.value=data.story||'';f.ctype.value=data.customType||'';
  $$(`input[name=${p}type]`).forEach(i=>i.checked=i.value===(data.type||'nap'));
- $$('#'+p+'tags input').forEach(i=>i.checked=(data.tags||[]).includes(i.value));
- const showThumb=()=>{if(thumbUrl)URL.revokeObjectURL(thumbUrl);thumbUrl=cover?URL.createObjectURL(cover):null;$('#'+p+'thumb').style.backgroundImage=thumbUrl?`url(${thumbUrl})`:'';$('#'+p+'coverDel').hidden=!cover};showThumb();
- const get=()=>({name:f.name.value.trim(),pet:f.pet.value.trim(),date:f.date.value||today(),story:f.story.value.trim(),type:($(`input[name=${p}type]:checked`)||{}).value||'nap',tags:$$('#'+p+'tags input:checked').map(i=>i.value),cover});
- root.addEventListener('input',e=>{if(e.target===f.name&&f.name.value.trim())$('#'+p+'nameErr').hidden=true;onChange&&onChange(get())});
- root.addEventListener('change',()=>onChange&&onChange(get()));
- $('#'+p+'sug').onclick=()=>{const arr=NAMES[get().type]||NAMES.custom;let n;do{n=arr[Math.floor(Math.random()*arr.length)]}while(arr.length>1&&n===f.name.value);f.name.value=n;$('#'+p+'nameErr').hidden=true;onChange&&onChange(get())};
- $('#'+p+'cover').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;try{cover=await cropCover(file);showThumb();onChange&&onChange(get())}catch{toast('這張照片無法讀取，換一張試試','err')}};
- $('#'+p+'coverDel').onclick=()=>{cover=null;showThumb();onChange&&onChange(get())};
- return{get,validate(){const ok=!!f.name.value.trim();$('#'+p+'nameErr').hidden=ok;f.name.setAttribute('aria-invalid',ok?'false':'true');if(!ok)f.name.focus();return ok},setType(t){const i=$(`input[name=${p}type][value=${t}]`);if(i){i.checked=true;onChange&&onChange(get())}}};
+ const curType=()=>($(`input[name=${p}type]:checked`)||{}).value||'nap';
+ const syncType=()=>{$p('ctypeWrap').hidden=curType()!=='custom'};syncType();
+ // tags
+ const sel=new Set(data.tags||[]);let managing=false;
+ const renderTags=()=>{const pool=tagPool.get();sel.forEach(t=>{if(!pool.includes(t))pool.push(t)});
+  $p('tags').innerHTML=pool.map(t=>`<span><label class="chip"><input type="checkbox" value="${esc(t)}" ${sel.has(t)?'checked':''}><span>${esc(t)}</span></label>${managing?`<button type="button" class="chip-x" data-del="${esc(t)}" aria-label="從清單移除「${esc(t)}」">${ic('close')}</button>`:''}</span>`).join('')||'<small class="hint">清單是空的，在下面新增吧</small>'};
+ renderTags();
+ $p('tags').addEventListener('change',e=>{const i=e.target;if(i.type==='checkbox'){i.checked?sel.add(i.value):sel.delete(i.value)}});
+ $p('tags').addEventListener('click',e=>{const x=e.target.closest('.chip-x');if(!x)return;const t=x.dataset.del;tagPool.set(tagPool.get().filter(v=>v!==t));sel.delete(t);renderTags();fire()});
+ const addTag=()=>{const v=$p('newtag').value.trim().replace(/[,，]/g,'');if(!v)return;const pool=tagPool.get();if(!pool.includes(v)){pool.push(v);tagPool.set(pool)}sel.add(v);$p('newtag').value='';renderTags();fire()};
+ $p('addtag').onclick=addTag;$p('newtag').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addTag()}});
+ $p('mgr').onclick=e=>{managing=!managing;e.currentTarget.setAttribute('aria-pressed',managing);renderTags()};
+ // cover with drag-to-position
+ let orig=data.coverOrig||data.cover||null,cover=data.cover||null,crop={z:1,cx:.5,cy:.5,...(data.coverCrop||{})},nat=null,url=null,pend=null,gt=0;
+ const frame=$p('frame'),cimg=$p('cimg'),zoom=$p('zoom');
+ const geo=()=>{if(!nat)return null;const FW=frame.clientWidth||300,FH=FW*150/252,s=Math.max(FW/nat.w,FH/nat.h)*crop.z,hx=FW/(2*nat.w*s),hy=FH/(2*nat.h*s);crop.cx=Math.min(1-hx,Math.max(hx,crop.cx));crop.cy=Math.min(1-hy,Math.max(hy,crop.cy));return{FW,FH,s}};
+ const place=()=>{const g=geo();if(!g)return;cimg.style.width=nat.w*g.s+'px';cimg.style.height=nat.h*g.s+'px';cimg.style.transform=`translate(${g.FW/2-crop.cx*nat.w*g.s}px,${g.FH/2-crop.cy*nat.h*g.s}px)`};
+ const gen=()=>{clearTimeout(gt);pend=new Promise(res=>{gt=setTimeout(async()=>{try{cover=await renderCrop(orig,crop)}catch{}res();fire()},180)});return pend};
+ const showCover=()=>{$p('crop').hidden=!orig;$p('coverDel').hidden=!orig;$p('coverLbl').textContent=orig?'換一張照片':'選擇照片';if(url){URL.revokeObjectURL(url);url=null}nat=null;if(orig){url=URL.createObjectURL(orig);cimg.onload=()=>{nat={w:cimg.naturalWidth,h:cimg.naturalHeight};zoom.value=crop.z;place()};cimg.src=url}};
+ showCover();
+ frame.addEventListener('pointerdown',e=>{if(!nat)return;e.preventDefault();frame.setPointerCapture(e.pointerId);let lx=e.clientX,ly=e.clientY;frame.style.cursor='grabbing';
+  const mv=ev=>{const g=geo();crop.cx-=(ev.clientX-lx)/(nat.w*g.s);crop.cy-=(ev.clientY-ly)/(nat.h*g.s);lx=ev.clientX;ly=ev.clientY;place()};
+  const up=()=>{frame.removeEventListener('pointermove',mv);frame.removeEventListener('pointerup',up);frame.removeEventListener('pointercancel',up);frame.style.cursor='';gen()};
+  frame.addEventListener('pointermove',mv);frame.addEventListener('pointerup',up);frame.addEventListener('pointercancel',up)});
+ frame.addEventListener('keydown',e=>{const d={ArrowLeft:[-.03,0],ArrowRight:[.03,0],ArrowUp:[0,-.03],ArrowDown:[0,.03]}[e.key];if(!d||!nat)return;e.preventDefault();crop.cx+=d[0]/crop.z;crop.cy+=d[1]/crop.z;place();gen()});
+ frame.addEventListener('wheel',e=>{if(!nat)return;e.preventDefault();crop.z=Math.min(3,Math.max(1,crop.z-e.deltaY*.002));zoom.value=crop.z;place();gen()},{passive:false});
+ zoom.addEventListener('input',e=>{e.stopPropagation();crop.z=+zoom.value;place();gen()});
+ window.addEventListener('resize',place);
+ $p('cover').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;try{orig=await shrinkImage(file,1600);crop={z:1,cx:.5,cy:.5};showCover();await gen()}catch{toast('這張照片無法讀取，換一張試試','err')}};
+ $p('coverDel').onclick=()=>{orig=null;cover=null;showCover();fire()};
+ // general
+ const get=()=>({name:f.name.value.trim(),pet:f.pet.value.trim(),date:f.date.value||today(),story:f.story.value.trim(),type:curType(),customType:curType()==='custom'?f.ctype.value.trim():'',tags:[...sel],cover,coverOrig:orig,coverCrop:orig?{z:crop.z,cx:crop.cx,cy:crop.cy}:null});
+ root.addEventListener('input',e=>{if(e.target===f.name&&f.name.value.trim())$p('nameErr').hidden=true;if(e.target!==$p('newtag'))fire()});
+ root.addEventListener('change',e=>{if(e.target.name===p+'type')syncType();fire()});
+ $p('sug').onclick=()=>{const arr=NAMES[curType()]||NAMES.custom;let n;do{n=arr[Math.floor(Math.random()*arr.length)]}while(arr.length>1&&n===f.name.value);f.name.value=n;$p('nameErr').hidden=true;fire()};
+ return{get,flush:()=>pend||Promise.resolve(),validate(){const ok=!!f.name.value.trim();$p('nameErr').hidden=ok;f.name.setAttribute('aria-invalid',ok?'false':'true');if(!ok)f.name.focus();return ok},setType(t){const i=$(`input[name=${p}type][value=${t}]`);if(i){i.checked=true;syncType();fire()}}};
 }
-async function cropCover(file){const img=await loadImg(file);const ratio=150/252;const W=900,H=Math.round(W*ratio);const c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');const sc=Math.max(W/img.width,H/img.height),sw=W/sc,sh=H/sc;x.drawImage(img,(img.width-sw)/2,(img.height-sh)/2,sw,sh,0,0,W,H);return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('toBlob')),'image/jpeg',.85))}
+async function shrinkImage(file,max){const img=await loadImg(file);const sc=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);c.getContext('2d').drawImage(img,0,0,c.width,c.height);return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('toBlob')),'image/jpeg',.88))}
+async function renderCrop(blob,cr){const img=await loadImg(blob);const W=900,H=Math.round(900*150/252);const s=Math.max(W/img.width,H/img.height)*(cr.z||1),sw=W/s,sh=H/s;const c=document.createElement('canvas');c.width=W;c.height=H;c.getContext('2d').drawImage(img,cr.cx*img.width-sw/2,cr.cy*img.height-sh/2,sw,sh,0,0,W,H);return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('toBlob')),'image/jpeg',.86))}
 
 /* ---------- recording ---------- */
 const REC={on:false,stream:null,mr:null,chunks:[],t0:0,timer:0,raf:0,an:null,src:null,levels:[],max:300};
@@ -707,12 +753,13 @@ function stopEd(){if(ED.src){const s=ED.src;ED.src=null;try{s.stop()}catch{}}ED.
 function edBtn(){const b=$('#edPlay');if(!b)return;b.innerHTML=ic(ED.playing?'pause':'play');b.setAttribute('aria-label',ED.playing?'暫停試聽':'試聽保留片段')}
 function resetEditor(){stopEd();Object.assign(ED,{s:null,ab:null,dirty:false,pk:null,pkN:0});showState('idle')}
 let pvTimer=0;function schedPreview(){clearTimeout(pvTimer);pvTimer=setTimeout(renderPreview,120)}
-async function renderPreview(){if(!ED.s||!NF)return;const d=NF.get();const a=Math.floor(ED.st*ED.sr),b=Math.floor(ED.en*ED.sr);const img=d.cover?await loadImg(d.cover,null):null;await fontsReady();const cv=$('#pvCard');drawCard(cv.getContext('2d'),cv.width,cv.height,{no:nextNo,name:d.name||'未命名標本',date:d.date,type:d.type,story:d.story,pet:d.pet,peaks:calcPeaks(ED.s,90,a,b),duration:ED.en-ED.st},{img})}
+async function renderPreview(){if(!ED.s||!NF)return;const d=NF.get();const a=Math.floor(ED.st*ED.sr),b=Math.floor(ED.en*ED.sr);const img=d.cover?await loadImg(d.cover,null):null;await fontsReady();const cv=$('#pvCard');drawCard(cv.getContext('2d'),cv.width,cv.height,{no:nextNo,name:d.name||'未命名標本',date:d.date,type:d.type,customType:d.customType,story:d.story,pet:d.pet,peaks:calcPeaks(ED.s,90,a,b),duration:ED.en-ED.st},{img})}
 async function saveNew(){
  if(!NF.validate()){toast('請先幫標本取個名字','err');return}
+ await NF.flush();
  const btn=$('#saveBtn');setLoading(btn,true,'收藏中…');stopAll();
  try{const d=NF.get();const s=processClip(ED.s,ED.sr,ED.st,ED.en,$('#norm').checked);const audio=encodeWav(s,ED.sr);const now=Date.now();
-  const rec={id:uid(),no:0,name:d.name,pet:d.pet,type:d.type,date:d.date,story:d.story,tags:d.tags,cover:d.cover,audio,audioType:'audio/wav',duration:s.length/ED.sr,peaks:calcPeaks(s,96),fav:false,createdAt:now,updatedAt:now,backedUp:false};
+  const rec={id:uid(),no:0,name:d.name,pet:d.pet,type:d.type,customType:d.customType,date:d.date,story:d.story,tags:d.tags,cover:d.cover,coverOrig:d.coverOrig,coverCrop:d.coverCrop,audio,audioType:'audio/wav',duration:s.length/ED.sr,peaks:calcPeaks(s,96),fav:false,createdAt:now,updatedAt:now,backedUp:false};
   try{await dbAdd(rec)}catch(e){dbErr(e);return}
   const first=items.length===0;await reload();resetEditor();renderArchive();renderVault();if(first)askPersist();
   toast(`已收進 No.${pad(rec.no)} 抽屜。目前只存在這台裝置，記得到保險箱備份`);
@@ -731,10 +778,10 @@ function renderArchive(){
  const body=$('#archiveBody');
  if(!items.length){body.innerHTML=`<div class="empty"><img src="${DOG_SRC}" alt="睡著的捲毛狗狗線稿" width="240" style="width:240px;margin:0 auto 6px"><h3>這裡還沒有聲音標本</h3><p>錄下第一個聲音，就會有一格屬於牠的抽屜。</p><button class="btn primary" id="emptyRec">${ic('mic')}開始錄音</button></div>`;$('#emptyRec').onclick=()=>{scrollTo$('#record');startRec()};return}
  if(!list.length){body.innerHTML=`<div class="empty"><h3>找不到符合的標本</h3><p>換個關鍵字或清除篩選試試。</p><button class="btn ghost" id="clrF">清除篩選</button></div>`;$('#clrF').onclick=()=>{$('#q').value='';$('#fType').value='all';$('#fFav').setAttribute('aria-pressed','false');renderArchive()};return}
- body.innerHTML=`<ul class="drawers">${list.map(r=>`<li><button class="drawer" data-id="${r.id}" aria-label="No.${pad(r.no)} ${esc(r.name)}，${(TMAP[r.type]||{}).name||''}，${fmt(r.duration)}${r.fav?'，珍藏':''}，${r.backedUp?'已備份':'僅存本機'}">
+ body.innerHTML=`<ul class="drawers">${list.map(r=>`<li><button class="drawer" data-id="${r.id}" aria-label="No.${pad(r.no)} ${esc(r.name)}，${typeName(r)}，${fmt(r.duration)}${r.fav?'，珍藏':''}，${r.backedUp?'已備份':'僅存本機'}">
   <span class="d-no">No.${pad(r.no)}</span>
   <span class="d-badge">${r.fav?ic('star','fav'):''}<span class="d-safe ${r.backedUp?'ok':'no'}">${r.backedUp?'已備份':'僅本機'}</span></span>
-  <span class="d-label"><b>${esc(r.name)}</b><small>${(TMAP[r.type]||{}).name||''} · ${fmt(r.duration)}</small></span>
+  <span class="d-label"><b>${esc(r.name)}</b><small>${typeName(r)} · ${fmt(r.duration)}</small></span>
   <span class="d-handle"></span>${miniWave(r.peaks)}</button></li>`).join('')}</ul>`;
 }
 function openDrawer(btn){const id=btn.dataset.id;if(reduced()){openDetail(id);return}btn.classList.add('pulling');setTimeout(()=>{btn.classList.remove('pulling');openDetail(id)},300)}
@@ -746,7 +793,7 @@ async function openDetail(id,keepEdit){const r=items.find(x=>x.id===id);if(!r)re
  sh.innerHTML=`<div class="sheet-head"><span class="mono">SPECIMEN NO. ${pad(r.no)}</span><button class="btn text icon-btn" id="dClose" aria-label="關上抽屜">${ic('close')}</button></div>
  <div class="sheet-body"><div><canvas class="card" id="dCard" width="600" height="800" role="img" aria-label="標本卡：${esc(r.name)}"></canvas></div>
  <div><h2 class="d-title" id="dTitle">${esc(r.name)}</h2>
- <div class="meta"><span>${(TMAP[r.type]||{}).name||''}</span><span>${(r.date||'').replaceAll('-','.')}</span>${r.pet?`<span>${esc(r.pet)}</span>`:''}<span class="mono">${fmt(r.duration,1)}</span><span>${r.backedUp?'已備份':'僅存本機'}</span></div>
+ <div class="meta"><span>${typeName(r)}</span><span>${(r.date||'').replaceAll('-','.')}</span>${r.pet?`<span>${esc(r.pet)}</span>`:''}<span class="mono">${fmt(r.duration,1)}</span><span>${r.backedUp?'已備份':'僅存本機'}</span></div>
  <div class="player"><button class="btn primary play-btn" id="dPlay" aria-label="播放">${ic('play')}</button><div class="grow"><canvas class="wave-cv" id="dWave" tabindex="0" role="slider" aria-label="播放位置" aria-valuemin="0" aria-valuemax="${r.duration.toFixed(1)}" aria-valuenow="0"></canvas><div class="time" id="dTime">0:00.0 / ${fmt(r.duration,1)}</div></div></div>
  ${r.story?`<p class="story">${esc(r.story)}</p>`:''}
  ${(r.tags||[]).length?`<div class="tags">${r.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>`:''}
@@ -785,31 +832,49 @@ function editDetail(r){stopAll();const sh=$('#detailSheet');
  const draw=async d=>{const img=d.cover?await loadImg(d.cover,null):null;await fontsReady();const cv=$('#eCard');if(cv)drawCard(cv.getContext('2d'),600,800,{...cardMeta(r),...d},{img})};
  const F=bindForm($('#eForm'),'e_',r,draw);draw(F.get());
  const back=()=>openDetail(r.id,true);$('#eX').onclick=back;$('#eCancel').onclick=back;
- $('#eSave').onclick=async e=>{if(!F.validate())return;const btn=e.currentTarget;setLoading(btn,true,'儲存中…');const d=F.get();const upd={...r,...d,updatedAt:Date.now(),backedUp:false};try{await dbPut(upd)}catch(err){setLoading(btn,false);dbErr(err);return}await reload();renderArchive();renderVault();toast('已儲存修改');openDetail(r.id,true)};
+ $('#eSave').onclick=async e=>{if(!F.validate())return;const btn=e.currentTarget;setLoading(btn,true,'儲存中…');await F.flush();const d=F.get();const upd={...r,...d,updatedAt:Date.now(),backedUp:false};try{await dbPut(upd)}catch(err){setLoading(btn,false);dbErr(err);return}await reload();renderArchive();renderVault();toast('已儲存修改');openDetail(r.id,true)};
  $('#e_name').focus();
 }
 
 /* ---------- export ---------- */
-async function exportPng(r){await fontsReady();const img=await loadImg(r.cover,r.cover?r.id+':'+r.updatedAt:null);const c=document.createElement('canvas');c.width=1200;c.height=1600;drawCard(c.getContext('2d'),1200,1600,cardMeta(r),{img});c.toBlob(b=>{if(!b){toast('圖片製作失敗','err');return}download(b,fileBase(r)+'.png');toast('卡片圖片已下載（圖片本身沒有聲音，要分享聲音請用影片卡）')},'image/png')}
-function canVideo(){return !!(window.MediaRecorder&&HTMLCanvasElement.prototype.captureStream&&(window.AudioContext||window.webkitAudioContext)&&AC().createMediaStreamDestination)}
+function offerFile(blob,name,title,msg){const d=$('#ask');$('#askT').textContent=title;$('#askM').textContent=msg;const b=$('#askB');b.innerHTML='';d.onclose=null;
+ const file=new File([blob],name,{type:blob.type});
+ const mk=(html,cls,fn)=>{const e=document.createElement('button');e.className='btn '+cls;e.innerHTML=html;e.onclick=fn;b.appendChild(e)};
+ mk('關閉','ghost',()=>d.close());
+ mk(ic('download')+'下載檔案','ghost',()=>{download(blob,name);d.close()});
+ let share=false;try{share=!!(navigator.canShare&&navigator.canShare({files:[file]}))}catch{}
+ if(share)mk(ic('upload')+'分享／存到照片','primary',async()=>{try{await navigator.share({files:[file]})}catch(e){if(e.name!=='AbortError')toast('分享失敗：'+e.message,'err')}d.close()});
+ d.showModal()}
+async function exportPng(r){await fontsReady();const img=await loadImg(r.cover,r.cover?r.id+':'+r.updatedAt:null);const c=document.createElement('canvas');c.width=1200;c.height=1600;drawCard(c.getContext('2d'),1200,1600,cardMeta(r),{img});c.toBlob(b=>{if(!b){toast('圖片製作失敗','err');return}offerFile(b,fileBase(r)+'.png','卡片圖片做好了','這是靜態圖片，不含聲音；要分享聲音請用影片卡。')},'image/png')}
+function canVideo(){return !!(window.MediaRecorder&&HTMLCanvasElement.prototype.captureStream&&(window.AudioContext||window.webkitAudioContext))}
 async function exportVideo(r,btn){
- setLoading(btn,true,'錄製影片卡…');stopAll();
- try{await fontsReady();const img=await loadImg(r.cover,r.cover?r.id+':'+r.updatedAt:null);
-  const W=720,H=960,cv=document.createElement('canvas');cv.width=W;cv.height=H;const c=cv.getContext('2d');drawCard(c,W,H,cardMeta(r),{img,progress:0});
-  const ctx=AC(),buf=await decodeBlob(r.audio),dest=ctx.createMediaStreamDestination(),vs=cv.captureStream(30);
+ setLoading(btn,true,'準備中…');stopAll();let cv=null,vs=null,alive=false,iv=0;
+ try{const ctx=AC();if(ctx.resume)await Promise.race([ctx.resume(),sleep(1500)]);
+  await fontsReady();const img=await loadImg(r.cover,r.cover?r.id+':'+r.updatedAt:null);
+  const W=720,H=960;cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  cv.style.cssText='position:fixed;left:0;top:0;width:6px;height:8px;opacity:.01;pointer-events:none;z-index:-1';document.body.appendChild(cv);
+  const c=cv.getContext('2d');drawCard(c,W,H,cardMeta(r),{img,progress:0});
+  const buf=await Promise.race([decodeBlob(r.audio),sleep(8000).then(()=>{throw new Error('讀取音檔逾時')})]);
+  const dest=ctx.createMediaStreamDestination();vs=cv.captureStream(30);
   const stream=new MediaStream([...vs.getVideoTracks(),...dest.stream.getAudioTracks()]);
-  const mime=['video/mp4;codecs=avc1,mp4a','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t));
+  const mime=['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t));
   const mr=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:2500000}:undefined),chunks=[];
   mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
   const done=new Promise((res,rej)=>{mr.onstop=res;mr.onerror=e=>rej(e.error||new Error('錄製失敗'))});
-  mr.start(200);const lead=.6,tail=1.2,dur=buf.duration,src=ctx.createBufferSource();src.buffer=buf;src.connect(dest);const t0=ctx.currentTime;src.start(t0+lead);
-  let alive=true;const tick=()=>{if(!alive)return;const t=ctx.currentTime-t0-lead;drawCard(c,W,H,cardMeta(r),{img,progress:Math.max(0,Math.min(1,t/dur))});setTimeout(tick,33)};tick();
-  await new Promise(res=>setTimeout(res,(lead+dur+tail)*1000));alive=false;mr.stop();await done;vs.getTracks().forEach(t=>t.stop());
+  const lead=.6,tail=1.2,dur=buf.duration,total=lead+dur+tail;
+  mr.start(500);const src=ctx.createBufferSource();src.buffer=buf;src.connect(dest);src.start(ctx.currentTime+lead);
+  const p0=performance.now();alive=true;
+  const tick=()=>{if(!alive)return;const t=(performance.now()-p0)/1000-lead;drawCard(c,W,H,cardMeta(r),{img,progress:Math.max(0,Math.min(1,t/dur))});setTimeout(tick,33)};tick();
+  iv=setInterval(()=>{const left=Math.max(0,Math.ceil(total-(performance.now()-p0)/1000));btn.innerHTML=ic('redo')+`錄製中，還要 ${left} 秒`},250);
+  await sleep(total*1000);alive=false;clearInterval(iv);btn.innerHTML=ic('redo')+'整理檔案…';
+  if(mr.state!=='inactive'){try{mr.requestData()}catch{}mr.stop()}
+  await Promise.race([done,sleep(6000)]);
+  if(!chunks.length)throw new Error(`這個瀏覽器沒有產生影片資料（${mime||'預設格式'}）`);
   const type=(mr.mimeType||mime||'video/webm').split(';')[0],ext=type.includes('mp4')?'mp4':'webm';
-  const blob=new Blob(chunks,{type});if(!blob.size)throw new Error('影片是空的');
-  download(blob,fileBase(r)+'.'+ext);toast(ext==='mp4'?'影片卡已下載，可以直接傳到 LINE 或社群':'影片卡已下載（WebM 格式，部分 iPhone App 可能需要轉檔）');
+  const blob=new Blob(chunks,{type});
+  offerFile(blob,fileBase(r)+'.'+ext,'影片卡做好了',ext==='mp4'?'可以分享到 LINE、存到照片，或下載檔案。':'這是 WebM 格式，電腦上可以直接播放；部分手機 App 可能要轉檔。');
  }catch(e){console.error(e);toast('影片卡製作失敗：'+(e.message||e),'err')}
- finally{setLoading(btn,false)}
+ finally{alive=false;clearInterval(iv);if(vs)vs.getTracks().forEach(t=>t.stop());if(cv)cv.remove();setLoading(btn,false)}
 }
 
 /* ---------- ZIP ---------- */
@@ -842,8 +907,8 @@ async function renderVault(){
 async function doBackup(btn){
  if(!items.length)return;setLoading(btn,true,'打包中…');
  try{const files=[],man={app:'little-sounds-archive',version:1,exportedAt:new Date().toISOString(),counter:nextNo-1,specimens:[]};
-  for(const r of items){const a=`audio/${r.id}.wav`,cv=r.cover?`covers/${r.id}.jpg`:null;files.push({name:a,data:new Uint8Array(await r.audio.arrayBuffer())});if(cv)files.push({name:cv,data:new Uint8Array(await r.cover.arrayBuffer())});
-   man.specimens.push({id:r.id,no:r.no,name:r.name,pet:r.pet||'',type:r.type,date:r.date,story:r.story||'',tags:r.tags||[],duration:r.duration,peaks:r.peaks,fav:!!r.fav,createdAt:r.createdAt,updatedAt:r.updatedAt,audio:a,audioType:r.audioType||r.audio.type||'audio/wav',cover:cv})}
+  for(const r of items){const a=`audio/${r.id}.wav`,cv=r.cover?`covers/${r.id}.jpg`:null,co=r.coverOrig&&r.coverOrig!==r.cover?`covers/${r.id}-original.jpg`:null;if(co)files.push({name:co,data:new Uint8Array(await r.coverOrig.arrayBuffer())});files.push({name:a,data:new Uint8Array(await r.audio.arrayBuffer())});if(cv)files.push({name:cv,data:new Uint8Array(await r.cover.arrayBuffer())});
+   man.specimens.push({id:r.id,no:r.no,name:r.name,pet:r.pet||'',type:r.type,customType:r.customType||'',coverOrig:co,coverCrop:r.coverCrop||null,date:r.date,story:r.story||'',tags:r.tags||[],duration:r.duration,peaks:r.peaks,fav:!!r.fav,createdAt:r.createdAt,updatedAt:r.updatedAt,audio:a,audioType:r.audioType||r.audio.type||'audio/wav',cover:cv})}
   files.unshift({name:'manifest.json',data:new TextEncoder().encode(JSON.stringify(man,null,1))});
   const zip=makeZip(files);const d=new Date(),z=n=>String(n).padStart(2,'0');
   download(zip,`little-sounds-backup-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.zip`);
@@ -862,7 +927,8 @@ async function doRestore(file){
   for(const s of m.specimens){if(!s||typeof s.id!=='string'||!s.name||!files.get(s.audio)){bad++;continue}
    const audio=new Blob([files.get(s.audio)],{type:s.audioType||'audio/wav'});let peaks=Array.isArray(s.peaks)&&s.peaks.length?s.peaks.map(Number):null,duration=+s.duration;
    if(!peaks||!duration){try{const b=await decodeBlob(audio);const mo=toMono(b);peaks=calcPeaks(mo,96);duration=b.duration}catch{bad++;continue}}
-   recs.push({id:s.id,no:+s.no||0,name:String(s.name).slice(0,40),pet:String(s.pet||'').slice(0,20),type:TMAP[s.type]?s.type:'custom',date:s.date||today(),story:String(s.story||'').slice(0,60),tags:Array.isArray(s.tags)?s.tags.filter(t=>typeof t==='string'):[],cover:s.cover&&files.get(s.cover)?new Blob([files.get(s.cover)],{type:'image/jpeg'}):null,audio,audioType:audio.type,duration,peaks,fav:!!s.fav,createdAt:+s.createdAt||Date.now(),updatedAt:+s.updatedAt||Date.now(),backedUp:true})}
+   const cvB=s.cover&&files.get(s.cover)?new Blob([files.get(s.cover)],{type:'image/jpeg'}):null;
+   recs.push({id:s.id,no:+s.no||0,name:String(s.name).slice(0,40),pet:String(s.pet||'').slice(0,20),type:TMAP[s.type]?s.type:'custom',customType:String(s.customType||'').slice(0,10),coverOrig:s.coverOrig&&files.get(s.coverOrig)?new Blob([files.get(s.coverOrig)],{type:'image/jpeg'}):cvB,coverCrop:s.coverCrop&&typeof s.coverCrop==='object'?{z:+s.coverCrop.z||1,cx:+s.coverCrop.cx||.5,cy:+s.coverCrop.cy||.5}:null,date:s.date||today(),story:String(s.story||'').slice(0,60),tags:Array.isArray(s.tags)?s.tags.filter(t=>typeof t==='string'):[],cover:s.cover&&files.get(s.cover)?new Blob([files.get(s.cover)],{type:'image/jpeg'}):null,audio,audioType:audio.type,duration,peaks,fav:!!s.fav,createdAt:+s.createdAt||Date.now(),updatedAt:+s.updatedAt||Date.now(),backedUp:true})}
   if(!recs.length){toast('備份檔裡沒有可以還原的標本','err');return}
   const exist=new Map(items.map(i=>[i.id,i]));const dup=recs.filter(r=>exist.has(r.id));let mode='skip';
   if(dup.length){mode=await ask('有重複的標本',`備份中有 ${dup.length} 件標本已經在收藏櫃裡（共 ${recs.length} 件）。要怎麼處理重複的部分？`,[{v:null,t:'取消還原'},{v:'replace',t:'以備份版本取代'},{v:'skip',t:'保留現有，只加入新的'}]);if(!mode)return}
