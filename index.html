@@ -617,7 +617,7 @@ async function importMedia(f){
  // 1) quick path: decode the video's audio track directly (works for most iPhone MOV/MP4 in Safari)
  if(f.size<=150*1048576){
   if(await loadAudio(f,'影片',true))return;
-  let why='';try{const m4a=remuxAudio(await f.arrayBuffer());if(await loadAudio(m4a,'影片',true))return;why='音軌格式無法解碼'}catch(e){why=e.message}
+  let why='';try{const ab=await f.arrayBuffer();let n=1;for(let i=0;i<n;i++){const m4a=remuxAudio(ab,i);n=remuxAudio.count;if(await loadAudio(m4a,'影片',true))return}why=`${n} 條音軌都無法解碼`}catch(e){why=e.message}
   REC.remuxWhy=why;
  }
  REC.srcInfo=`${f.type||'未知格式'}・${(f.size/1048576).toFixed(1)} MB`;
@@ -626,15 +626,16 @@ async function importMedia(f){
 }
 
 // Pull the audio track out of an iPhone .mov/.mp4 and re-wrap it as an .m4a that every browser can decode.
-function remuxAudio(ab){
+function remuxAudio(ab,pick=0){
  const u=new Uint8Array(ab),v=new DataView(ab),tt=(p)=>String.fromCharCode(u[p],u[p+1],u[p+2],u[p+3]);
  const boxes=(s,e)=>{const out=[];let p=s;while(p+8<=e){let size=v.getUint32(p),h=8;const type=tt(p+4);if(size===1){size=Number(v.getBigUint64(p+8));h=16}else if(size===0)size=e-p;if(size<h||p+size>e)break;out.push({type,s:p,e:p+size,h});p+=size}return out};
  const kid=(b,t)=>boxes(b.s+b.h,b.e).find(x=>x.type===t);
  const path=(b,ts)=>{let c=b;for(const t of ts){c=c&&kid(c,t)}return c};
  const moov=boxes(0,u.length).find(b=>b.type==='moov');if(!moov)throw new Error('找不到影片目錄（moov）');
  const kids=boxes(moov.s+moov.h,moov.e),mvhd=kids.find(b=>b.type==='mvhd');
- const trak=kids.filter(b=>b.type==='trak').find(t=>{const h=path(t,['mdia','hdlr']);return h&&tt(h.s+16)==='soun'});
- if(!mvhd||!trak)throw new Error('這支影片沒有音軌');
+ const sounds=kids.filter(b=>b.type==='trak').filter(t=>{const h=path(t,['mdia','hdlr']);return h&&tt(h.s+16)==='soun'});
+ if(!mvhd||!sounds.length)throw new Error('這支影片沒有音軌');
+ remuxAudio.count=sounds.length;const trak=sounds[pick];if(!trak)throw new Error('找不到第 '+(pick+1)+' 條音軌');
  const stbl=path(trak,['mdia','minf','stbl']);const co=stbl&&(kid(stbl,'stco')||kid(stbl,'co64'));if(!co)throw new Error('找不到音訊位置表');
  const ftyp=new Uint8Array(28),fv=new DataView(ftyp.buffer);fv.setUint32(0,28);'ftypM4A \0\0\0\0M4A isommp42'.split('').forEach((c,i)=>ftyp[4+i]=c.charCodeAt(0));
  const mv=u.slice(mvhd.s,mvhd.e),tk=u.slice(trak.s,trak.e),moovSize=8+mv.length+tk.length;
@@ -651,7 +652,7 @@ async function extractFromVideo(file){
  v.src=url;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.style.cssText='position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:0;pointer-events:none';document.body.appendChild(v);
  const drop=()=>{v.pause();v.removeAttribute('src');v.load();v.remove();URL.revokeObjectURL(url)};
  try{await new Promise((res,rej)=>{v.onloadedmetadata=res;v.onerror=()=>rej(new Error('無法讀取這支影片（'+(REC.srcInfo||'')+(REC.remuxWhy?'；'+REC.remuxWhy:'')+'），請截圖這段訊息給開發者'));setTimeout(()=>rej(new Error('讀取影片逾時，請再試一次')),20000)})}catch(e){drop();toast(e.message,'err');return}
- let node,dest;try{const ctx=AC();node=ctx.createMediaElementSource(v);dest=ctx.createMediaStreamDestination();node.connect(dest);REC.an=ctx.createAnalyser();REC.an.fftSize=1024;node.connect(REC.an)}catch(e){drop();toast('這個瀏覽器無法從影片擷取聲音，請先轉成音檔','err');return}
+ let node,dest;try{const ctx=AC();node=ctx.createMediaElementSource(v);dest=ctx.createMediaStreamDestination();node.connect(dest);node.connect(ctx.destination);REC.an=ctx.createAnalyser();REC.an.fftSize=1024;node.connect(REC.an)}catch(e){drop();toast('這個瀏覽器無法從影片擷取聲音，請先轉成音檔','err');return}
  const mime=pickAudioMime();let mr;try{mr=new MediaRecorder(dest.stream,mime?{mimeType:mime}:undefined)}catch(e){drop();toast('無法擷取影片聲音：'+e.message,'err');return}
  Object.assign(REC,{on:true,mr,stream:dest.stream,src:node,chunks:[],levels:[],aborted:false,video:v,dropVideo:drop,total:Math.min(v.duration||REC.max,REC.max),timeFn:()=>v.currentTime});
  mr.ondataavailable=e=>{if(e.data&&e.data.size)REC.chunks.push(e.data)};
@@ -662,7 +663,7 @@ async function extractFromVideo(file){
  REC.waiting=true;setLive('影片已讀取，準備擷取聲音','取消');$('#timer').textContent=`0:00 / ${fmt(REC.total)}`;
  const go=$('#liveGo');go.innerHTML=ic('play')+'開始擷取聲音';go.hidden=false;showState('live');go.focus();
  go.onclick=()=>{const ctx=AC();const p1=ctx.resume?ctx.resume():null;const p=v.play();
-  Promise.resolve(p).then(()=>Promise.resolve(p1)).then(()=>{REC.waiting=false;go.hidden=true;setLive('正在從影片擷取聲音','停止並使用這段');mr.start(250);if(v.duration>REC.max)toast('影片超過 5 分鐘，只會擷取前 5 分鐘');$('#stopBtn').focus();runMeter()})
+  Promise.resolve(p).then(()=>Promise.resolve(p1)).then(()=>{REC.waiting=false;go.hidden=true;setLive('正在從影片擷取聲音（會同步播出）','停止並使用這段');mr.start(250);if(v.duration>REC.max)toast('影片超過 5 分鐘，只會擷取前 5 分鐘');$('#stopBtn').focus();runMeter()})
   .catch(e=>{toast(`影片無法播放（${e.name||'錯誤'}）。可以先在「照片」App 把影片分享成檔案，或改用錄音`,'err');REC.waiting=false;go.hidden=true;cleanupRec();showState('idle')})};
 }
 function finishRec(){if(!REC.on)return;if(REC.waiting){REC.waiting=false;$('#liveGo').hidden=true;cleanupRec();showState('idle');return}cancelAnimationFrame(REC.raf);try{if(REC.mr.state!=='inactive')REC.mr.stop();else REC.mr.onstop()}catch{cleanupRec();showState('idle')}}
