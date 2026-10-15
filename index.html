@@ -348,7 +348,7 @@ footer{padding:30px 0 50px;text-align:center;color:var(--ink-s);font-size:13px}
             <canvas class="meter" id="meter" aria-hidden="true"></canvas>
             <button class="btn primary stop-btn" id="liveGo" hidden style="background:var(--lake-d);border-color:var(--lake-d);margin:0 6px 10px"></button>
             <button class="btn stop-btn" id="stopBtn"></button>
-            <p class="hint" style="margin-top:12px">最長 5 分鐘，會自動停止。</p>
+            <p class="hint" id="liveHint" style="margin-top:12px">最長 5 分鐘，會自動停止。</p>
           </div>
           <div id="recEdit" class="rec-edit" hidden>
             <div>
@@ -365,6 +365,7 @@ footer{padding:30px 0 50px;text-align:center;color:var(--ink-s);font-size:13px}
                 </div>
                 <div class="trim-info" id="trimInfo"></div>
                 <div class="ed-tools">
+                  <button class="btn ghost sm" id="edAll"></button>
                   <button class="btn ghost sm" id="autoTrim"></button>
                   <button class="btn ghost sm" id="reRec"></button>
                   <button class="btn ghost sm danger" id="clearEd"></button>
@@ -521,7 +522,10 @@ PL.audio.addEventListener('ended',()=>{cancelAnimationFrame(PL.raf);PL.audio.cur
 
 /* ---------- card drawing ---------- */
 const imgCache=new Map();
-async function loadImg(blob,key){if(!blob)return null;if(key&&imgCache.has(key))return imgCache.get(key);let img;try{img=await createImageBitmap(blob)}catch{img=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(blob)})}if(key)imgCache.set(key,img);return img}
+async function loadImg(blob,key){if(!blob)return null;if(key&&imgCache.has(key))return imgCache.get(key);let img=null;
+ try{const url=URL.createObjectURL(blob);const el=new Image();el.src=url;if(el.decode)await el.decode();else await new Promise((res,rej)=>{el.onload=res;el.onerror=rej});if(!el.naturalWidth)throw new Error('empty');img=el}
+ catch{try{img=await createImageBitmap(blob)}catch{throw new Error('這張照片無法讀取')}}
+ if(key)imgCache.set(key,img);return img}
 async function fontsReady(){try{await DOG.decode().catch(()=>{});await Promise.all([document.fonts.load('700 20px "LXGW WenKai TC"','標本'),document.fonts.load('400 16px "LXGW WenKai TC"','故事'),document.fonts.load('500 12px "IBM Plex Mono"','NO'),document.fonts.load('italic 500 16px "Cormorant Garamond"','A')])}catch{}}
 function wrapText(c,text,maxW,maxLines){const lines=[];let cur='';for(const ch of String(text)){if(ch==='\n'){lines.push(cur);cur='';continue}if(c.measureText(cur+ch).width>maxW&&cur){lines.push(cur);cur=ch}else cur+=ch}if(cur)lines.push(cur);if(lines.length>maxLines){lines.length=maxLines;let l=lines[maxLines-1];while(l&&c.measureText(l+'…').width>maxW)l=l.slice(0,-1);lines[maxLines-1]=l+'…'}return lines}
 function drawCard(c,W,H,r,o={}){
@@ -619,7 +623,7 @@ function bindForm(root,p,data,onChange){
  return{get,flush:()=>pend||Promise.resolve(),validate(){const ok=!!f.name.value.trim();$p('nameErr').hidden=ok;f.name.setAttribute('aria-invalid',ok?'false':'true');if(!ok)f.name.focus();return ok},setType(t){const i=$(`input[name=${p}type][value=${t}]`);if(i){i.checked=true;syncType();fire()}}};
 }
 async function shrinkImage(file,max){const img=await loadImg(file);const sc=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);c.getContext('2d').drawImage(img,0,0,c.width,c.height);return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('toBlob')),'image/jpeg',.88))}
-async function renderCrop(blob,cr){const img=await loadImg(blob);const W=900,H=Math.round(900*150/252);const s=Math.max(W/img.width,H/img.height)*(cr.z||1),sw=W/s,sh=H/s;const c=document.createElement('canvas');c.width=W;c.height=H;c.getContext('2d').drawImage(img,cr.cx*img.width-sw/2,cr.cy*img.height-sh/2,sw,sh,0,0,W,H);return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('toBlob')),'image/jpeg',.86))}
+async function renderCrop(blob,cr){const img=await loadImg(blob);if(!img||!img.width)throw new Error('照片讀取失敗');const W=900,H=Math.round(900*150/252);const s=Math.max(W/img.width,H/img.height)*(cr.z||1),sw=W/s,sh=H/s;const c=document.createElement('canvas');c.width=W;c.height=H;c.getContext('2d').drawImage(img,cr.cx*img.width-sw/2,cr.cy*img.height-sh/2,sw,sh,0,0,W,H);return await new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('toBlob')),'image/jpeg',.86))}
 
 /* ---------- recording ---------- */
 const REC={on:false,stream:null,mr:null,chunks:[],t0:0,timer:0,raf:0,an:null,src:null,levels:[],max:300};
@@ -627,6 +631,7 @@ let pendingType='nap', NF=null;
 function envCheck(){const n=$('#envNote');if(!window.isSecureContext){n.className='note warn';n.innerHTML=ic('shield')+'<span>錄音需要在 HTTPS 網址或 localhost 開啟。這個頁面目前不是安全連線，所以只能上傳音檔。</span>';return false}if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){n.className='note warn';n.innerHTML=ic('shield')+'<span>這個瀏覽器不支援直接錄音，可以先用手機內建錄音 App 錄好，再上傳音檔。</span>';return false}n.className='note';n.innerHTML=ic('mic')+'<span>也可以直接選手機相簿裡的影片，會自動取出聲音。第一次錄音時，瀏覽器會詢問麥克風權限，請按「允許」。聲音只會存在你的裝置裡。</span>';return true}
 function showState(s){$('#recIdle').hidden=s!=='idle';$('#recLive').hidden=s!=='live';$('#recEdit').hidden=s!=='edit'}
 async function startRec(){
+ try{AC()}catch{}
  if(REC.on)return;
  if(!envCheck()){scrollTo$('#record');toast('目前無法錄音，請改用上傳音檔','err');return}
  if(ED.dirty&&!await ask('還沒收藏的錄音會被清掉','目前這段聲音還沒存進收藏櫃，確定要重新錄嗎？',[{v:false,t:'先不要'},{v:true,t:'重新錄',cls:'danger'}]))return;
@@ -641,7 +646,7 @@ async function startRec(){
  mr.onerror=e=>{toast('錄音中斷了：'+((e.error&&e.error.message)||'未知錯誤'),'err');REC.aborted=true;finishRec()};
  mr.onstop=async()=>{const chunks=REC.chunks;cleanupRec();const blob=new Blob(chunks,{type:mr.mimeType||mime||'audio/webm'});if(!blob.size){toast('沒有錄到任何聲音，請再試一次','err');showState('idle');return}await loadAudio(blob,'錄音');if(REC.aborted)toast('已保留中斷前錄到的部分')};
  stream.getAudioTracks().forEach(t=>t.onended=()=>{if(REC.on){REC.aborted=true;toast('麥克風被中斷，已停止錄音','err');finishRec()}});
- try{const ctx=AC();REC.src=ctx.createMediaStreamSource(stream);REC.an=ctx.createAnalyser();REC.an.fftSize=1024;REC.src.connect(REC.an)}catch{}
+ try{const ctx=AC();if(ctx.resume)ctx.resume();REC.src=ctx.createMediaStreamSource(stream);REC.an=ctx.createAnalyser();REC.an.fftSize=1024;REC.src.connect(REC.an)}catch{}
  mr.start(250);REC.t0=performance.now();REC.timeFn=()=>(performance.now()-REC.t0)/1000;REC.total=0;setLive('錄音中','停止錄音');showState('live');$('#stopBtn').focus();runMeter();
 }
 function setLive(label,stopLabel){$('.live-st').innerHTML='<span class="rdot"></span>'+label;$('#stopBtn').innerHTML=ic('stop')+stopLabel}
@@ -686,11 +691,17 @@ function remuxAudio(ab,pick=0){
  const ftyp=new Uint8Array(28),fv=new DataView(ftyp.buffer);fv.setUint32(0,28);'ftypM4A \0\0\0\0M4A isommp42'.split('').forEach((c,i)=>ftyp[4+i]=c.charCodeAt(0));
  const mv=u.slice(mvhd.s,mvhd.e),tk=u.slice(trak.s,trak.e),moovSize=8+mv.length+tk.length;
  const moovH=new Uint8Array(8),mh=new DataView(moovH.buffer);mh.setUint32(0,moovSize);'moov'.split('').forEach((c,i)=>moovH[4+i]=c.charCodeAt(0));
- const delta=28+moovSize+8,tv=new DataView(tk.buffer),r=co.s-trak.s,n=tv.getUint32(r+12);
- for(let i=0;i<n;i++){if(co.type==='stco'){const o=r+16+i*4;const nv=tv.getUint32(o)+delta;if(nv>0xFFFFFFFF)throw new Error('影片太大');tv.setUint32(o,nv)}else{const o=r+16+i*8;tv.setBigUint64(o,tv.getBigUint64(o)+BigInt(delta))}}
- if(8+u.length>0xFFFFFFFF)throw new Error('影片太大');
- const md=new Uint8Array(8),mdv=new DataView(md.buffer);mdv.setUint32(0,8+u.length);'mdat'.split('').forEach((c,i)=>md[4+i]=c.charCodeAt(0));
- return new Blob([ftyp,moovH,mv,tk,md,u],{type:'audio/mp4'});
+ const stsz=kid(stbl,'stsz'),stsc=kid(stbl,'stsc');if(!stsz||!stsc)throw new Error('找不到音訊取樣表');
+ const fixed=v.getUint32(stsz.s+12),nS=v.getUint32(stsz.s+16),sizeOf=i=>fixed||v.getUint32(stsz.s+20+i*4);
+ const nE=v.getUint32(stsc.s+12),ents=[];for(let j=0;j<nE;j++){const o=stsc.s+16+j*12;ents.push([v.getUint32(o),v.getUint32(o+4)])}
+ const nC=v.getUint32(co.s+12),chunkOff=i=>co.type==='stco'?v.getUint32(co.s+16+i*4):Number(v.getBigUint64(co.s+16+i*8));
+ const parts=[];let si=0,total=0,ei=0;
+ for(let c=1;c<=nC;c++){while(ei+1<ents.length&&ents[ei+1][0]<=c)ei++;const spc=ents[ei]?ents[ei][1]:0;let len=0;for(let k=0;k<spc&&si<nS;k++,si++)len+=sizeOf(si);const off=chunkOff(c-1);if(off+len>u.length)throw new Error('音訊資料不完整');parts.push([off,len]);total+=len}
+ const base=28+moovSize+8,tv=new DataView(tk.buffer),r=co.s-trak.s;let cum=0;
+ parts.forEach(([,len],i)=>{if(co.type==='stco')tv.setUint32(r+16+i*4,base+cum);else tv.setBigUint64(r+16+i*8,BigInt(base+cum));cum+=len});
+ const body=new Uint8Array(total);let p2=0;for(const[off,len]of parts){body.set(u.subarray(off,off+len),p2);p2+=len}
+ const md=new Uint8Array(8),mdv=new DataView(md.buffer);mdv.setUint32(0,8+total);'mdat'.split('').forEach((c,i)=>md[4+i]=c.charCodeAt(0));
+ return new Blob([ftyp,moovH,mv,tk,md,body],{type:'audio/mp4'});
 }
 async function extractFromVideo(file){
  if(!window.MediaRecorder){toast('這個瀏覽器無法從影片擷取聲音，請先把影片轉成音檔再上傳','err');return}
@@ -706,14 +717,14 @@ async function extractFromVideo(file){
  mr.onstop=async()=>{const chunks=REC.chunks;cleanupRec();const blob=new Blob(chunks,{type:mr.mimeType||mime||'audio/webm'});if(!blob.size){toast('沒有擷取到聲音，這支影片可能沒有音軌','err');showState('idle');return}await loadAudio(blob,'影片')};
  v.onended=()=>finishRec();v.onerror=()=>{toast('影片播放中斷，已保留擷取到的部分','err');finishRec()};
  // iPhone Safari only lets video play + audio start inside a fresh tap, so ask for one.
- REC.waiting=true;setLive('影片已讀取，準備擷取聲音','取消');$('#timer').textContent=`0:00 / ${fmt(REC.total)}`;
+ REC.waiting=true;setLive('影片已讀取，準備擷取聲音','取消');$('#liveHint').textContent=`無法直接取出音軌（${REC.remuxWhy||'格式不支援'}），改用邊播邊收音。結束後可以完整試聽，再決定保留哪一段。`;$('#timer').textContent=`0:00 / ${fmt(REC.total)}`;
  const go=$('#liveGo');go.innerHTML=ic('play')+'開始擷取聲音';go.hidden=false;showState('live');go.focus();
  go.onclick=()=>{const ctx=AC();const p1=ctx.resume?ctx.resume():null;const p=v.play();
   Promise.resolve(p).then(()=>Promise.resolve(p1)).then(()=>{REC.waiting=false;go.hidden=true;setLive('正在從影片擷取聲音（會同步播出）','停止並使用這段');mr.start(250);if(v.duration>REC.max)toast('影片超過 5 分鐘，只會擷取前 5 分鐘');$('#stopBtn').focus();runMeter()})
   .catch(e=>{toast(`影片無法播放（${e.name||'錯誤'}）。可以先在「照片」App 把影片分享成檔案，或改用錄音`,'err');REC.waiting=false;go.hidden=true;cleanupRec();showState('idle')})};
 }
 function finishRec(){if(!REC.on)return;if(REC.waiting){REC.waiting=false;$('#liveGo').hidden=true;cleanupRec();showState('idle');return}cancelAnimationFrame(REC.raf);try{if(REC.mr.state!=='inactive')REC.mr.stop();else REC.mr.onstop()}catch{cleanupRec();showState('idle')}}
-function cleanupRec(){REC.on=false;cancelAnimationFrame(REC.raf);if(REC.dropVideo){REC.dropVideo();REC.dropVideo=null;REC.video=null}REC.total=0;REC.an=null;try{REC.src&&REC.src.disconnect()}catch{}REC.stream&&REC.stream.getTracks().forEach(t=>t.stop());REC.stream=null}
+function cleanupRec(){REC.on=false;const lh=$('#liveHint');if(lh)lh.textContent='最長 5 分鐘，會自動停止。';cancelAnimationFrame(REC.raf);if(REC.dropVideo){REC.dropVideo();REC.dropVideo=null;REC.video=null}REC.total=0;REC.an=null;try{REC.src&&REC.src.disconnect()}catch{}REC.stream&&REC.stream.getTracks().forEach(t=>t.stop());REC.stream=null}
 
 /* ---------- editor ---------- */
 const ED={s:null,sr:0,dur:0,st:0,en:0,head:0,ab:null,src:null,playing:false,t0:0,off:0,raf:0,dirty:false,pkN:0,pk:null};
@@ -738,7 +749,7 @@ function drawEditor(){if(!ED.s)return;const cv=$('#edWave'),r=cv.getBoundingClie
  const hs=$('#hS'),he=$('#hE');hs.style.left=(a*100)+'%';he.style.left=(b*100)+'%';
  hs.setAttribute('aria-valuemin','0');hs.setAttribute('aria-valuemax',ED.en.toFixed(1));hs.setAttribute('aria-valuenow',ED.st.toFixed(1));hs.setAttribute('aria-valuetext',fmt(ED.st,1));
  he.setAttribute('aria-valuemin',ED.st.toFixed(1));he.setAttribute('aria-valuemax',ED.dur.toFixed(1));he.setAttribute('aria-valuenow',ED.en.toFixed(1));he.setAttribute('aria-valuetext',fmt(ED.en,1));
- $('#edTime').textContent=`${fmt(Math.max(0,ED.head-ED.st),1)} / ${fmt(ED.en-ED.st,1)}`;
+ $('#edTime').textContent=`${fmt(ED.head,1)} / ${fmt(ED.dur,1)}`;const w=$('#edWave');w.setAttribute('aria-valuenow',ED.head.toFixed(1));w.setAttribute('aria-valuetext',fmt(ED.head,1));
 }
 function updTrim(){$('#trimInfo').innerHTML=`<span>起點 ${fmt(ED.st,1)}</span><span>終點 ${fmt(ED.en,1)}</span><span>保留 ${fmt(ED.en-ED.st,1)}（原長 ${fmt(ED.dur,1)}）</span>`}
 function setTrim(w,t){const M=.3;if(w==='st')ED.st=Math.max(0,Math.min(t,ED.en-M));else ED.en=Math.min(ED.dur,Math.max(t,ED.st+M));if(ED.playing)stopEd();if(ED.head<ED.st||ED.head>ED.en)ED.head=ED.st;drawEditor();updTrim();schedPreview()}
@@ -746,11 +757,14 @@ function bindHandle(el,w){
  el.addEventListener('pointerdown',e=>{e.preventDefault();el.setPointerCapture(e.pointerId);const wrap=$('#edWrap');const mv=ev=>{const r=wrap.getBoundingClientRect();setTrim(w,Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width))*ED.dur)};const up=()=>{el.removeEventListener('pointermove',mv);el.removeEventListener('pointerup',up);el.removeEventListener('pointercancel',up)};el.addEventListener('pointermove',mv);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up)});
  el.addEventListener('keydown',e=>{const s=e.shiftKey?1:.1;const k=e.key;if(k==='ArrowLeft'||k==='ArrowDown')setTrim(w,ED[w]-s);else if(k==='ArrowRight'||k==='ArrowUp')setTrim(w,ED[w]+s);else if(k==='Home')setTrim(w,0);else if(k==='End')setTrim(w,ED.dur);else return;e.preventDefault()});
 }
-function playEd(){if(!ED.ab)return;stopAll();const ctx=AC();const from=(ED.head>=ED.st&&ED.head<ED.en-.05)?ED.head:ED.st;const src=ctx.createBufferSource();src.buffer=ED.ab;src.connect(ctx.destination);src.start(0,from,ED.en-from);Object.assign(ED,{src,playing:true,t0:ctx.currentTime,off:from});
- src.onended=()=>{if(ED.src===src){ED.playing=false;ED.src=null;ED.head=ED.st;cancelAnimationFrame(ED.raf);edBtn();drawEditor()}};edBtn();
- const loop=()=>{if(!ED.playing)return;ED.head=Math.min(ED.en,ED.off+(ctx.currentTime-ED.t0));drawEditor();ED.raf=requestAnimationFrame(loop)};loop()}
+function playEd(full){if(!ED.ab)return;stopAll();const ctx=AC();if(ctx.resume)ctx.resume();
+ let from=full?0:Math.min(Math.max(0,ED.head),ED.dur-.05);if(!full&&from>=ED.en-.05&&from<ED.en)from=ED.st;
+ const to=full?ED.dur:(from<ED.en-.05?ED.en:ED.dur);
+ const src=ctx.createBufferSource();src.buffer=ED.ab;src.connect(ctx.destination);src.start(0,from,to-from);Object.assign(ED,{src,playing:true,t0:ctx.currentTime,off:from,to,full:!!full});
+ src.onended=()=>{if(ED.src===src){ED.playing=false;ED.src=null;ED.head=ED.full?0:ED.st;cancelAnimationFrame(ED.raf);edBtn();drawEditor()}};edBtn();
+ const loop=()=>{if(!ED.playing)return;ED.head=Math.min(ED.to,ED.off+(ctx.currentTime-ED.t0));drawEditor();ED.raf=requestAnimationFrame(loop)};loop()}
 function stopEd(){if(ED.src){const s=ED.src;ED.src=null;try{s.stop()}catch{}}ED.playing=false;cancelAnimationFrame(ED.raf);edBtn()}
-function edBtn(){const b=$('#edPlay');if(!b)return;b.innerHTML=ic(ED.playing?'pause':'play');b.setAttribute('aria-label',ED.playing?'暫停試聽':'試聽保留片段')}
+function edBtn(){const a=$('#edAll');if(a)a.innerHTML=ic(ED.playing&&ED.full?'pause':'play')+(ED.playing&&ED.full?'停止':'完整試聽');const b=$('#edPlay');if(!b)return;b.innerHTML=ic(ED.playing&&!ED.full?'pause':'play');b.setAttribute('aria-label',ED.playing?'暫停試聽':'試聽保留片段')}
 function resetEditor(){stopEd();Object.assign(ED,{s:null,ab:null,dirty:false,pk:null,pkN:0});showState('idle')}
 let pvTimer=0;function schedPreview(){clearTimeout(pvTimer);pvTimer=setTimeout(renderPreview,120)}
 async function renderPreview(){if(!ED.s||!NF)return;const d=NF.get();const a=Math.floor(ED.st*ED.sr),b=Math.floor(ED.en*ED.sr);const img=d.cover?await loadImg(d.cover,null):null;await fontsReady();const cv=$('#pvCard');drawCard(cv.getContext('2d'),cv.width,cv.height,{no:nextNo,name:d.name||'未命名標本',date:d.date,type:d.type,customType:d.customType,story:d.story,pet:d.pet,peaks:calcPeaks(ED.s,90,a,b),duration:ED.en-ED.st},{img})}
@@ -960,8 +974,14 @@ function init(){
  $('#recBtn').onclick=startRec;$('#stopBtn').onclick=finishRec;
  $('#upIn').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)importMedia(f)};
  bindHandle($('#hS'),'st');bindHandle($('#hE'),'en');
- $('#edWave').addEventListener('pointerdown',e=>{const r=e.currentTarget.getBoundingClientRect();const t=(e.clientX-r.left)/r.width*ED.dur;ED.head=Math.max(ED.st,Math.min(ED.en,t));const was=ED.playing;stopEd();drawEditor();if(was)playEd()});
- $('#edPlay').onclick=()=>ED.playing?stopEd():playEd();
+ const ew=$('#edWave');ew.tabIndex=0;ew.setAttribute('role','slider');ew.setAttribute('aria-label','播放位置，可拖曳');
+ ew.addEventListener('pointerdown',e=>{if(!ED.s)return;e.preventDefault();ew.setPointerCapture(e.pointerId);const was=ED.playing,wasFull=ED.full;stopEd();
+  const at=ev=>{const r=ew.getBoundingClientRect();ED.head=Math.max(0,Math.min(1,(ev.clientX-r.left)/r.width))*ED.dur;drawEditor()};at(e);
+  const up=()=>{ew.removeEventListener('pointermove',at);ew.removeEventListener('pointerup',up);ew.removeEventListener('pointercancel',up);if(was)playEd(wasFull&&false)};
+  ew.addEventListener('pointermove',at);ew.addEventListener('pointerup',up);ew.addEventListener('pointercancel',up)});
+ ew.addEventListener('keydown',e=>{if(!ED.s)return;const d={ArrowLeft:-.5,ArrowRight:.5}[e.key];if(e.key===' '||e.key==='Enter'){e.preventDefault();ED.playing?stopEd():playEd();return}if(!d)return;e.preventDefault();ED.head=Math.max(0,Math.min(ED.dur,ED.head+d));drawEditor()});
+ $('#edAll').onclick=()=>{if(ED.playing&&ED.full){stopEd();drawEditor()}else playEd(true)};
+ $('#edPlay').onclick=()=>{if(ED.playing&&!ED.full)stopEd();else playEd()};
  $('#autoTrim').onclick=()=>{[ED.st,ED.en]=autoTrim(ED.s,ED.sr);ED.head=ED.st;stopEd();drawEditor();updTrim();schedPreview();toast('已重新偵測有聲音的段落')};
  $('#reRec').onclick=()=>startRec();
  $('#clearEd').onclick=async()=>{if(await ask('清除這段聲音？','還沒收進抽屜的錄音會消失，無法復原。',[{v:false,t:'保留'},{v:true,t:'清除',cls:'danger'}])){resetEditor();toast('已清除')}};
