@@ -891,6 +891,7 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 .vc-status.ok{background:rgba(46,94,80,.09);color:#2E5E50}.vc-status.warn{background:rgba(199,136,109,.14);color:#A0583A}
 .vdest{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:14px 0 4px}.vdest .mono{font-size:11px;color:#74736E;margin-right:4px}.vdest span:not(.mono){font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid rgba(47,46,42,.14);background:#FBFAF6}
 .vmini{margin-top:14px}.vmini>div{padding:9px 0!important;font-size:14px}
+.vs-coll{border-style:dashed!important}.viewsw{flex-wrap:wrap!important;max-width:100%}
 </style>
 </head>
 <body>
@@ -1005,7 +1006,7 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
             <button class="btn ghost sm" id="fFav" aria-pressed="false"></button>
           </div>
           <div class="tool2">
-            <div class="viewsw" role="group" aria-label="檢視方式"><button class="btn ghost sm" data-view="cart" aria-pressed="true">卡匣陳列</button><button class="btn ghost sm" data-view="drawer" aria-pressed="false">木質抽屜</button><button class="btn ghost sm" data-view="ring" aria-pressed="false">聲音年輪</button><button class="btn ghost sm" data-view="time" aria-pressed="false">時光軸</button></div>
+            <div class="viewsw" role="group" aria-label="檢視方式"><button class="btn ghost sm" data-view="cart" aria-pressed="true">卡匣陳列</button><button class="btn ghost sm" data-view="drawer" aria-pressed="false">木質抽屜</button><button class="btn ghost sm" data-view="ring" aria-pressed="false">聲音年輪</button><button class="btn ghost sm" data-view="time" aria-pressed="false">時光軸</button><button class="btn ghost sm vs-coll" id="collBtn2" type="button" hidden>✂ 拼貼工作室</button></div>
             
           </div>
           <div class="cabinet" id="archiveBody"></div>
@@ -1565,9 +1566,9 @@ function drawerSound(){try{const ctx=AC();if(ctx.resume)ctx.resume();if(!drawerB
 function renderPetBar(){const el=$('#petbar');if(!el)return;if(!pets.length&&!items.length){el.innerHTML='';return}
  const cnt=id=>items.filter(r=>id==='none'?!r.petId:r.petId===id).length,none=cnt('none');
  if(petFilter!=='all'&&petFilter!=='none'&&!petById(petFilter))petFilter='all';
- el.innerHTML=`<button class="pchip" data-pf="all" aria-pressed="${petFilter==='all'}">全部毛孩</button>${pets.map(p=>`<button class="pchip" data-pf="${p.id}" aria-pressed="${petFilter===p.id}">${p.photo?`<i class="pav" data-pav="${p.id}"></i>`:`<i class="pav pav-n">${esc(p.name.slice(0,1))}</i>`}${esc(p.name)}<small>${cnt(p.id)}</small></button>`).join('')}${none&&pets.length?`<button class="pchip" data-pf="none" aria-pressed="${petFilter==='none'}">未指定<small>${none}</small></button>`:''}<button class="btn text sm" id="petMgr">${ic('edit')}管理毛孩</button><button class="btn text sm" id="collBtn" ${items.length>1?'':'hidden'}>${ic('film')}拼貼工作室</button>`;
+ el.innerHTML=`<button class="pchip" data-pf="all" aria-pressed="${petFilter==='all'}">全部毛孩</button>${pets.map(p=>`<button class="pchip" data-pf="${p.id}" aria-pressed="${petFilter===p.id}">${p.photo?`<i class="pav" data-pav="${p.id}"></i>`:`<i class="pav pav-n">${esc(p.name.slice(0,1))}</i>`}${esc(p.name)}<small>${cnt(p.id)}</small></button>`).join('')}${none&&pets.length?`<button class="pchip" data-pf="none" aria-pressed="${petFilter==='none'}">未指定<small>${none}</small></button>`:''}<button class="btn text sm" id="petMgr">${ic('edit')}管理毛孩</button><button class="btn text sm" id="collBtn" hidden>${ic('film')}拼貼工作室</button>`;
  $$('[data-pav]',el).forEach(i=>{const p=petById(i.dataset.pav);if(p&&p.photo){const u=URL.createObjectURL(p.photo);i.style.backgroundImage=`url(${u})`}});
- $$('[data-pf]',el).forEach(b=>b.onclick=()=>{petFilter=b.dataset.pf;renderArchive()});$('#petMgr').onclick=openPetManager;$('#collBtn').onclick=openCollage}
+ $$('[data-pf]',el).forEach(b=>b.onclick=()=>{petFilter=b.dataset.pf;renderArchive()});$('#petMgr').onclick=openPetManager;$('#collBtn').onclick=openCollage;const c2=$('#collBtn2');if(c2){c2.hidden=items.length<2;c2.onclick=openCollage}}
 function openPetManager(){stopAll();lastFocus=document.activeElement;const sh=$('#detailSheet');
  const row=p=>`<li class="prow" data-id="${p.id}"><label class="pph" title="更換照片">${p.photo?'':`<span>${esc(p.name.slice(0,1))}</span>`}<input type="file" accept="image/*" class="sr"></label>
   <div class="pf"><label><span class="lbl">名字</span><input type="text" maxlength="20" value="${esc(p.name)}" data-k="name"></label><label><span class="lbl">生日（可不填）</span><input type="date" value="${esc(p.birthday||'')}" data-k="birthday"></label><label class="pstamp"><span class="lbl">館藏印章</span><span class="row"><select data-k="stamp"><option value="">不蓋印章</option>${STAMPS.map(x=>`<option value="${x[0]}" ${p.stamp===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select><canvas class="stamp-pv" width="96" height="96" aria-hidden="true"></canvas></span></label></div>
