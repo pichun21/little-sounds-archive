@@ -865,6 +865,21 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 .tour-act{gap:8px;align-items:center;margin-top:10px}.tour-act .grow{flex:1}
 @media(max-width:700px){.tour-in{grid-template-columns:1fr}.tour-img{min-height:0;padding:12px}.tour-txt{padding:18px 18px 16px}.tour-txt h2{font-size:20px}}
 .linkbtn{background:none;border:none;padding:0;font:inherit;color:inherit;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+
+.play-btn{padding:0!important;justify-content:center}.play-btn .ic{max-width:none!important;width:22px!important;height:22px!important}
+.mx{display:grid;gap:12px;padding:18px 24px 26px}.mx-top{display:grid;gap:4px}.mx-note{margin:0;font-size:13px}
+.mx-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}.mx-lbl{font-size:12px;color:#6B6A63;letter-spacing:.06em}
+.mx-grp{display:inline-flex;border:1px solid rgba(47,46,42,.16);border-radius:999px;padding:2px;background:#FBFAF6}
+.mx-grp button,.mx-tg{border:none;background:none;font:500 13px/1 "Noto Sans TC",sans-serif;color:#2F2E2A;padding:7px 11px;border-radius:999px;cursor:pointer;min-height:32px}
+.mx-grp button[aria-pressed=true]{background:#2F2E2A;color:#F5F3EE}.mx-tg{border:1px solid rgba(47,46,42,.16)}.mx-tg[aria-pressed=true]{background:#2E5E50;color:#F5F3EE;border-color:#2E5E50}.mx-tg:disabled{opacity:.4;cursor:default}
+.mx-chk{display:inline-flex;gap:6px;align-items:center;font-size:13px}.mx-badge{font-size:12px;padding:4px 10px;border-radius:999px;background:#C7886D;color:#fff}
+.mx-time{font-size:13px;min-width:120px}.mx .play-btn{--h:44px;width:44px!important;height:44px!important}.mx .play-btn svg{width:20px!important;height:20px!important}
+.mx-win{position:relative;display:grid;gap:6px;outline:none}.mx-win canvas{display:block;width:100%;touch-action:pan-y;cursor:crosshair}#xsOv{cursor:grab}
+.mx-prog{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#F5F3EE;color:#6B6A63;font:500 13px "IBM Plex Mono",monospace;min-height:200px}
+.mx-info{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 16px;font-size:12px;color:#6B6A63}.mx-cur{color:#2E5E50}
+.mx-set summary{cursor:pointer;font-size:14px;font-weight:600;padding:4px 0}.mx-set .mx-bar{margin:8px 0}.mx-sl{display:inline-flex;align-items:center;gap:6px;font-size:13px}.mx-sl input{width:110px}.mx-sl b{font-size:12px;min-width:46px}
+.mx-exp{gap:10px;flex-wrap:wrap;align-items:center}
+@media(max-width:640px){.mx{padding:14px 14px 22px}.mx-grp button{padding:7px 9px}.mx-sl input{width:90px}}
 </style>
 </head>
 <body>
@@ -1909,73 +1924,155 @@ function drawPetStamp(c,cx,cy,R,pet){const k=pet.stamp||'circle',S=Math.ceil(R*2
  x.globalAlpha=1;x.globalCompositeOperation='source-over';
  c.save();c.globalAlpha=.86;c.globalCompositeOperation='multiply';c.drawImage(o,cx-S/2,cy-S/2);c.restore()}
 
-/* ---------- 聲音顯微鏡 ---------- */
-function fftMag(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]]}}
- for(let len=2;len<=n;len<<=1){const a=-2*Math.PI/len,wr=Math.cos(a),wi=Math.sin(a);for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let k=0;k<len/2;k++){const p=i+k,q=p+len/2,tr=re[q]*cr-im[q]*ci,ti=re[q]*ci+im[q]*cr;re[q]=re[p]-tr;im[q]=im[p]-ti;re[p]+=tr;im[p]+=ti;const t=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=t}}}}
-function spectro(data,sr,cols,rows,fmax){const N=1024,out=new Float32Array(cols*rows),win=new Float32Array(N);for(let i=0;i<N;i++)win[i]=.5-.5*Math.cos(2*Math.PI*i/N);
- const re=new Float32Array(N),im=new Float32Array(N),bmax=Math.floor(fmax/(sr/N));
- for(let x=0;x<cols;x++){const st=Math.floor(x/cols*(data.length-N));for(let i=0;i<N;i++){re[i]=(data[st+i]||0)*win[i];im[i]=0}fftMag(re,im);
-  for(let y=0;y<rows;y++){const b0=Math.max(1,Math.floor(Math.pow(y/rows,1.6)*bmax)),b1=Math.max(b0+1,Math.floor(Math.pow((y+1)/rows,1.6)*bmax));let m=0;for(let b=b0;b<b1;b++){const v=re[b]*re[b]+im[b]*im[b];if(v>m)m=v}out[(rows-1-y)*cols+x]=10*Math.log10(m+1e-12)}}
- let mx=-1e9;for(const v of out)if(v>mx)mx=v;for(let i=0;i<out.length;i++)out[i]=Math.max(0,Math.min(1,(out[i]-mx+70)/70));return out}
+/* ---------- 聲音顯微鏡 v2：真實 STFT、共用時間座標 ---------- */
+const MX_MAPS={moss:['#0C1A16','#143229','#22584B','#3F8C78','#8CC7A4','#DDEBB0','#F7EFB2'],warm:['#140F0C','#3B2219','#7A3626','#B8613A','#E0A35F','#F7E3BC'],gray:['#0A0A0A','#FFFFFF']};
+const MX_MAPN={moss:'墨綠',warm:'暖棕',gray:'灰階'};
+function mxLut(stops){const lut=new Uint8ClampedArray(256*3),n=stops.length-1,rgb=stops.map(h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)));for(let i=0;i<256;i++){const t=i/255*n,k=Math.min(n-1,Math.floor(t)),f=t-k;for(let c=0;c<3;c++)lut[i*3+c]=rgb[k][c]+(rgb[k+1][c]-rgb[k][c])*f}return lut}
+function fftMag(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t}}
+ for(let len=2;len<=n;len<<=1){const a=-2*Math.PI/len,wr=Math.cos(a),wi=Math.sin(a),h=len>>1;for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let k=0;k<h;k++){const p=i+k,q=p+h,tr=re[q]*cr-im[q]*ci,ti=re[q]*ci+im[q]*cr;re[q]=re[p]-tr;im[q]=im[p]-ti;re[p]+=tr;im[p]+=ti;const t=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=t}}}}
+// Short-time Fourier transform. Hann window N=2048, fixed hop, magnitude normalised by window sum → dBFS (sine at full scale ≈ 0 dB).
+// Stored as Uint8 over −120…0 dBFS (0.47 dB steps); display settings never modify this array.
+async function mxAnalyze(buf,onProg){const sr=buf.sampleRate,ch=buf.numberOfChannels,L=buf.length,mono=new Float32Array(L);
+ for(let c=0;c<ch;c++){const d=buf.getChannelData(c);for(let i=0;i<L;i++)mono[i]+=d[i]/ch}
+ const N=2048,hop=Math.max(128,Math.ceil(L/6000)),frames=Math.max(1,Math.floor(Math.max(0,L-N)/hop)+1),win=new Float32Array(N);let ws=0;
+ for(let i=0;i<N;i++){win[i]=.5-.5*Math.cos(2*Math.PI*i/(N-1));ws+=win[i]}
+ const binHz=sr/N,fTop=Math.min(sr/2,16000),bins=Math.min(N/2,Math.ceil(fTop/binHz)+1),S=new Uint8Array(frames*bins),hist=new Uint32Array(256),re=new Float32Array(N),im=new Float32Array(N);
+ for(let f=0;f<frames;f++){const st=f*hop;for(let i=0;i<N;i++){re[i]=(mono[st+i]||0)*win[i];im[i]=0}fftMag(re,im);
+  for(let b=0;b<bins;b++){const m=Math.sqrt(re[b]*re[b]+im[b]*im[b])*2/ws,db=20*Math.log10(m+1e-12),q=Math.max(0,Math.min(255,Math.round((db+120)*255/120)));S[f*bins+b]=q;hist[q]++}
+  if(f%150===149){onProg&&onProg(f/frames);await new Promise(r=>setTimeout(r,0))}}
+ const tot=frames*bins;let acc=0,p=255;for(let q=255;q>=0;q--){acc+=hist[q];if(acc>=tot*.002){p=q;break}}
+ return{mono,sr,dur:L/sr,N,hop,frames,bins,binHz,fTop,S,autoTop:Math.min(0,Math.ceil(p/255*120-120+3))}}
+function mxNice(span,target){const raw=span/target,m=Math.pow(10,Math.floor(Math.log10(raw))),n=raw/m;return(n<1.5?1:n<3?2:n<7?5:10)*m}
+const mxFmtT=(t,st)=>st<.01?t.toFixed(3):st<.1?t.toFixed(2):st<1?t.toFixed(1):t.toFixed(st<1?1:0);
+const mxFmtHz=f=>f>=1000?(f/1000).toFixed(f%1000?1:0)+'k':String(Math.round(f));
+// Shared drawing helpers: every plot uses the same t→x mapping inside its rect, so spectrum, waveform and axis line up.
+function mxSpecPlot(c,x,y,w,h,A,V,lut){w=Math.max(1,Math.round(w));h=Math.max(1,Math.round(h));const img=c.createImageData(w,h),D=img.data,span=V.t1-V.t0,[f0,f1]=V.fr,lo=V.top-V.range,g=V.gamma;
+ const fa=new Int32Array(w),fb=new Int32Array(w);for(let i=0;i<w;i++){const ta=V.t0+i/w*span,tb=V.t0+(i+1)/w*span;let a=Math.floor((ta*A.sr-A.N/2)/A.hop),b=Math.floor((tb*A.sr-A.N/2)/A.hop);a=Math.max(0,Math.min(A.frames-1,a));b=Math.max(a+1,Math.min(A.frames,b));fa[i]=a;fb[i]=b}
+ const ba=new Int32Array(h),bb=new Int32Array(h);for(let j=0;j<h;j++){const fh=f1-(j/h)*(f1-f0),fl=f1-((j+1)/h)*(f1-f0);let a=Math.round(fl/A.binHz),b=Math.round(fh/A.binHz);a=Math.max(0,Math.min(A.bins-1,a));b=Math.max(a+1,Math.min(A.bins,b));ba[j]=a;bb[j]=b}
+ const map=new Uint8Array(256);for(let q=0;q<256;q++){const db=q/255*120-120;let v=(db-lo)/V.range;v=v<0?0:v>1?1:v;map[q]=Math.round(Math.pow(v,g)*255)}
+ for(let i=0;i<w;i++)for(let j=0;j<h;j++){let m=0;for(let f=fa[i];f<fb[i];f++){const o=f*A.bins;for(let b=ba[j];b<bb[j];b++){const q=A.S[o+b];if(q>m)m=q}}const k=map[m]*3,p=(j*w+i)*4;D[p]=lut[k];D[p+1]=lut[k+1];D[p+2]=lut[k+2];D[p+3]=255}
+ c.putImageData(img,x,y)}
+function mxWavePlot(c,x,y,w,h,A,V,col){const span=V.t1-V.t0,mid=y+h/2,amp=h*.46;c.fillStyle='rgba(47,46,42,.12)';c.fillRect(x,mid,w,1);
+ const s0=V.t0*A.sr,per=span*A.sr/w;c.fillStyle=col;c.strokeStyle=col;
+ if(per<2){c.beginPath();for(let i=0;i<=w;i++){const v=A.mono[Math.round(s0+i*per)]||0;i?c.lineTo(x+i,mid-v*amp):c.moveTo(x+i,mid-v*amp)}c.lineWidth=1.2;c.stroke();return}
+ for(let i=0;i<w;i++){let lo=1,hi=-1;const a=Math.floor(s0+i*per),b=Math.min(A.mono.length,Math.floor(s0+(i+1)*per));for(let k=Math.max(0,a);k<b;k++){const v=A.mono[k];if(v<lo)lo=v;if(v>hi)hi=v}if(hi<lo)continue;c.fillRect(x+i,mid-hi*amp,1,Math.max(1,(hi-lo)*amp))}}
+function mxTimeAxis(c,x,y,w,V,fs,col){const span=V.t1-V.t0,st=mxNice(span,Math.max(3,w/(fs*9))),t=Math.ceil(V.t0/st)*st;c.fillStyle=col;c.strokeStyle=col;c.font=`500 ${fs}px "IBM Plex Mono",monospace`;c.textAlign='center';c.textBaseline='top';
+ for(let v=t;v<=V.t1+1e-9;v+=st){const px=x+(v-V.t0)/span*w;c.fillRect(px,y,1,fs*.45);c.fillText(mxFmtT(v,st)+'s',Math.min(x+w-fs*1.5,Math.max(x+fs,px)),y+fs*.6)}}
+function mxHzAxis(c,x,y,h,V,fs,col){const[f0,f1]=V.fr,st=mxNice(f1-f0,Math.max(2,h/(fs*4)));c.fillStyle=col;c.font=`500 ${fs}px "IBM Plex Mono",monospace`;c.textAlign='right';c.textBaseline='middle';
+ for(let f=Math.ceil(f0/st)*st;f<=f1+1e-6;f+=st){const py=y+h-(f-f0)/(f1-f0)*h;c.fillRect(x-fs*.4,py,fs*.35,1);c.fillText(mxFmtHz(f),x-fs*.6,Math.min(y+h-fs*.5,Math.max(y+fs*.5,py)))}}
 const XS={audio:null,raf:0};
 function XS_stop(){if(XS.audio){XS.audio.pause()}cancelAnimationFrame(XS.raf)}
 async function openScope(r){stopAll();const sh=$('#detailSheet');
  sh.innerHTML=`<div class="sheet-head"><button class="btn text sm" id="xsBack">${ic('left')}回到標本</button><span class="mono">MICROSCOPE</span><button class="btn text icon-btn" id="xsX" aria-label="關閉">${ic('close')}</button></div>
- <div class="xs"><h2 class="d-title" id="dTitle">聲音顯微鏡・${esc(r.name)}</h2>
- <p class="hint xs-note">把聲音攤開來看：上方是頻譜（越亮代表那個音高越響），下方是放大的波形。這裡只是觀察工具，不能判斷疾病或情緒；擔心毛孩健康請諮詢獸醫。</p>
- <div class="xs-box"><canvas id="xsSpec" aria-label="頻譜圖，點一下跳到該位置"></canvas><div class="xs-ax mono"><span>8k Hz</span><span>0</span></div></div>
- <div class="xs-box"><canvas id="xsWave" aria-label="放大波形"></canvas></div>
- <div class="xs-ctl">
-  <button class="btn primary play-btn" id="xsPlay" aria-label="播放">${ic('play')}</button>
-  <div class="seg" role="group" aria-label="播放速度">${[.25,.5,.75,1].map(v=>`<button data-rate="${v}" aria-pressed="${v===.5}">${v}×</button>`).join('')}</div>
-  <label class="xs-z">放大<input type="range" id="xsZoom" min="1" max="40" step="1" value="6"></label>
-  <label class="xs-p"><input type="checkbox" id="xsPitch"> 音高跟著變慢</label>
-  <span class="mono" id="xsTime">0:00.0</span></div>
- <div class="row xs-exp"><button class="btn ghost sm" id="xsPng">${ic('image')}頻譜圖 PNG</button><button class="btn ghost sm" id="xsSlow">${ic('download')}慢速音檔 WAV</button><span class="hint">慢速音檔使用目前選的速度，音高會跟著變低。</span></div></div>`;
+ <div class="mx"><div class="mx-top"><h2 class="d-title" id="dTitle">聲音顯微鏡・${esc(r.name)}</h2><p class="hint mx-note">所有畫面都直接來自這段錄音的真實資料。僅供觀察，不判斷健康或情緒；擔心毛孩健康請諮詢獸醫。</p></div>
+ <div class="mx-bar">
+  <button class="btn primary play-btn" id="xsPlay" aria-label="播放" disabled>${ic('play')}</button>
+  <span class="mono mx-time" id="xsTime">分析中…</span>
+  <button class="mx-tg" id="xsLoop" aria-pressed="false" title="只在選取的片段內循環">⟲ 片段循環</button>
+  <span class="mx-grp" role="group" aria-label="播放速度">${[.5,.75,1].map(v=>`<button data-rate="${v}" aria-pressed="${v===1}">${v}×</button>`).join('')}</span>
+  <label class="mx-chk"><input type="checkbox" id="xsKeep" checked> 保持音高</label>
+  <span class="mx-badge" id="xsBadge" hidden></span>
+ </div>
+ <div class="mx-bar">
+  <span class="mx-lbl">時間</span><span class="mx-grp" role="group" aria-label="時間縮放">${[1,2,4,8].map(v=>`<button data-z="${v}" aria-pressed="${v===1}">${v}×</button>`).join('')}</span>
+  <span class="mx-lbl">頻率</span><span class="mx-grp" role="group" aria-label="頻率範圍">${[['full','全頻'],['low','低頻'],['mid','中頻'],['high','高頻']].map(([k,t])=>`<button data-band="${k}" aria-pressed="${k==='full'}">${t}</button>`).join('')}</span>
+  <button class="mx-tg" id="xsZsel" disabled>放大選取</button><button class="mx-tg" id="xsClr" disabled>清除選取</button>
+ </div>
+ <div class="mx-win" id="xsWin"><canvas id="xsSpec" aria-label="頻譜圖：點一下跳到該時間，拖曳可以框選片段"></canvas><canvas id="xsWave" aria-label="波形：與頻譜共用時間座標"></canvas><canvas id="xsOv" aria-label="全段總覽：拖曳移動觀察範圍"></canvas><div class="mx-prog" id="xsProg">分析中 0%</div></div>
+ <div class="mx-info"><span class="mono" id="xsRange"></span><span class="mono mx-cur" id="xsCur">移到頻譜上可以看時間、頻率與音量</span></div>
+ <details class="mx-set"><summary>顯示設定</summary><div class="mx-bar">
+  <span class="mx-lbl">色階</span><span class="mx-grp" role="group" aria-label="色階">${Object.keys(MX_MAPS).map(k=>`<button data-map="${k}" aria-pressed="${k==='moss'}">${MX_MAPN[k]}</button>`).join('')}</span>
+  <label class="mx-sl">動態範圍 <input type="range" id="xsRangeIn" min="30" max="100" step="5" value="60"><b id="xsRangeV" class="mono">60 dB</b></label>
+  <label class="mx-sl">亮度 <input type="range" id="xsTopIn" min="-30" max="15" step="1" value="0"><b id="xsTopV" class="mono">±0</b></label>
+  <label class="mx-sl">對比 <input type="range" id="xsGamIn" min="0.5" max="2" step="0.05" value="1"><b id="xsGamV" class="mono">1.00</b></label>
+  <button class="mx-tg" id="xsReset">還原預設</button></div>
+  <p class="hint">這些設定只改變顯示方式，不會改動原始聲音與分析數據。動態範圍越小，越安靜的聲音會被隱藏，細節越清楚。</p></details>
+ <div class="row mx-exp"><button class="btn ghost sm" id="xsPng" disabled>${ic('image')}輸出目前畫面 PNG</button><button class="btn ghost sm" id="xsSlow" disabled>${ic('download')}輸出慢速音檔 WAV</button><span class="hint" id="xsSlowHint">慢速音檔會依目前速度輸出（有選取就只輸出選取片段），音高會跟著變低。</span></div></div>`;
  $('#xsX').onclick=()=>$('#detail').close();$('#xsBack').onclick=()=>{XS_stop();openDetail(r.id)};
- const spec=$('#xsSpec'),wave=$('#xsWave');let buf;
- try{buf=await decodeBlob(r.audio)}catch(e){toast('這段聲音無法解析','err');return}
- const data=buf.getChannelData(0),sr=buf.sampleRate,dur=buf.duration;
- if(XS.audio)XS.audio.pause();const au=new Audio(URL.createObjectURL(r.audio));XS.audio=au;let rate=.5,center=0;
- const fit=cv=>{const rc=cv.getBoundingClientRect(),d=devicePixelRatio||1;cv.width=Math.round(rc.width*d);cv.height=Math.round(rc.height*d);return cv.getContext('2d')};
- const sc=fit(spec),SW=spec.width,SH=spec.height,cols=Math.min(SW,900),rows=Math.min(SH,200);
- const m=spectro(data,sr,cols,rows,8000),im=new ImageData(cols,rows);
- const ramp=[[244,239,227],[199,165,120],[169,69,47],[60,40,30]];
- for(let i=0;i<m.length;i++){const v=m[i]*3,k=Math.min(2,Math.floor(v)),t=v-k,a=ramp[k],b=ramp[k+1];im.data[i*4]=a[0]+(b[0]-a[0])*t;im.data[i*4+1]=a[1]+(b[1]-a[1])*t;im.data[i*4+2]=a[2]+(b[2]-a[2])*t;im.data[i*4+3]=255}
- const sbuf=document.createElement('canvas');sbuf.width=cols;sbuf.height=rows;sbuf.getContext('2d').putImageData(im,0,0);
- const wc=fit(wave),WW=wave.width,WH=wave.height;
- const draw=()=>{const t=au.currentTime||0,z=+$('#xsZoom').value,span=dur/z;
-  if(!au.paused)center=t;const a0=Math.max(0,Math.min(dur-span,center-span/2));
-  sc.imageSmoothingEnabled=true;sc.drawImage(sbuf,0,0,SW,SH);
-  sc.fillStyle='rgba(48,47,43,.12)';sc.fillRect(a0/dur*SW,0,span/dur*SW,SH);
-  sc.fillStyle='#302F2B';sc.fillRect(t/dur*SW-1,0,2,SH);
-  wc.fillStyle='#FBF8F1';wc.fillRect(0,0,WW,WH);wc.fillStyle='rgba(48,47,43,.12)';wc.fillRect(0,WH/2,WW,1);
-  const s0=Math.floor(a0*sr),n=Math.max(1,Math.floor(span*sr)),per=n/WW;wc.fillStyle='#A9452F';
-  for(let x=0;x<WW;x++){let lo=1,hi=-1;const i0=s0+Math.floor(x*per),i1=Math.max(i0+1,s0+Math.floor((x+1)*per));for(let i=i0;i<i1&&i<data.length;i++){const v=data[i];if(v<lo)lo=v;if(v>hi)hi=v}if(hi<lo)continue;wc.fillRect(x,WH/2-hi*WH*.46,1,Math.max(1,(hi-lo)*WH*.46))}
-  if(t>=a0&&t<=a0+span){wc.fillStyle='#302F2B';wc.fillRect((t-a0)/span*WW-1,0,2,WH)}
-  wc.fillStyle='#74736E';wc.font=`${11*(devicePixelRatio||1)}px "IBM Plex Mono",monospace`;wc.fillText(`${fmt(a0,2)} – ${fmt(a0+span,2)}`,8,16*(devicePixelRatio||1));
-  $('#xsTime').textContent=`${fmt(t,1)} / ${fmt(dur,1)}`;
-  const p=!au.paused,b=$('#xsPlay');if(b){b.innerHTML=ic(p?'pause':'play');b.setAttribute('aria-label',p?'暫停':'播放')}};
- const loop=()=>{draw();if(!au.paused)XS.raf=requestAnimationFrame(loop)};
- const setPitch=()=>{const keep=!$('#xsPitch').checked;au.preservesPitch=keep;au.mozPreservesPitch=keep;au.webkitPreservesPitch=keep};
- $('#xsPlay').onclick=async()=>{if(!au.paused){au.pause();draw();return}stopAll();setPitch();au.playbackRate=rate;if(au.currentTime>=dur-.02)au.currentTime=0;try{await au.play();loop()}catch(e){toast('無法播放：'+e.message,'err')}};
- au.onended=()=>{cancelAnimationFrame(XS.raf);draw()};
- $$('[data-rate]',sh).forEach(b=>b.onclick=()=>{rate=+b.dataset.rate;au.playbackRate=rate;$$('[data-rate]',sh).forEach(x=>x.setAttribute('aria-pressed',x===b))});
- $('#xsPitch').onchange=setPitch;$('#xsZoom').oninput=draw;
- $('#xsPng').onclick=async()=>{await fontsReady();const W=1600,H=1100,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');x.fillStyle='#F5F3EE';x.fillRect(0,0,W,H);
-  x.fillStyle='#302F2B';x.font=`700 54px "Noto Serif TC",serif`;x.textBaseline='alphabetic';x.fillText(r.name||'聲音標本',80,130);x.fillStyle='#74736E';x.font=`500 22px "IBM Plex Mono",monospace`;x.fillText(`NO.${String(r.no||0).padStart(3,'0')} · ${(r.date||'').replaceAll('-','.')} · ${fmt(dur,1)}${petNameOf(r)?' · '+petNameOf(r):''}`.toUpperCase(),80,178);
-  x.imageSmoothingEnabled=true;x.drawImage(sbuf,80,220,W-160,560);x.strokeStyle='rgba(48,47,43,.2)';x.lineWidth=2;x.strokeRect(80,220,W-160,560);
-  x.font=`500 16px "IBM Plex Mono",monospace`;x.fillStyle='#74736E';x.fillText('8 kHz',W-150,245);x.fillText('0 Hz',W-140,770);
-  const pk=r.peaks||calcPeaks(data,320);x.fillStyle='#FBF8F1';x.fillRect(80,810,W-160,150);x.fillStyle='#A9452F';const bw=(W-160)/pk.length;pk.forEach((v,i)=>{const h=Math.max(2,v*130);x.fillRect(80+i*bw,885-h/2,Math.max(1,bw-1),h)});
-  x.fillStyle='#74736E';x.font=`400 18px "Noto Sans TC",sans-serif`;x.fillText('上方為頻譜（越亮代表該音高越響），下方為完整波形。僅供觀察，不代表健康或情緒判斷。',80,1020);
-  const pt=r.petId&&petById(r.petId);if(pt&&pt.stamp)drawPetStamp(x,W-150,120,60,pt);
-  if(LOGO.complete&&LOGO.naturalWidth){const lh=30,lw=lh*LOGO.naturalWidth/LOGO.naturalHeight;x.globalAlpha=.75;x.drawImage(LOGO,W-80-lw,1000,lw,lh);x.globalAlpha=1}
-  c.toBlob(b=>b&&offerFile(b,`${safeName(r.name)}_頻譜圖.png`,'頻譜圖做好了','1600×1100 的圖片，包含頻譜與完整波形。'),'image/png')};
- $('#xsSlow').onclick=()=>{if(rate===1){toast('目前是原速，先選 0.25×–0.75× 再匯出');return}const n=Math.floor(data.length/rate),out=new Float32Array(n);for(let i=0;i<n;i++){const p=i*rate,j=Math.floor(p),f=p-j;out[i]=(data[j]||0)*(1-f)+(data[j+1]||0)*f}
-  offerFile(encodeWav(out,sr),`${safeName(r.name)}_${rate}x.wav`,'慢速音檔做好了',`${rate}× 速度，長度 ${fmt(n/sr,1)}。`)};
- spec.addEventListener('pointerdown',e=>{const rc=spec.getBoundingClientRect();const t=Math.max(0,Math.min(dur-.01,(e.clientX-rc.left)/rc.width*dur));au.currentTime=t;center=t;draw()});
- wave.addEventListener('pointerdown',e=>{const rc=wave.getBoundingClientRect(),z=+$('#xsZoom').value,span=dur/z,a0=Math.max(0,Math.min(dur-span,center-span/2)),t=a0+(e.clientX-rc.left)/rc.width*span;au.currentTime=Math.max(0,Math.min(dur-.01,t));draw()});
- draw()}
+ let buf;try{buf=await decodeBlob(r.audio)}catch(e){$('#xsProg').textContent='這段聲音無法解析';return}
+ const A=await mxAnalyze(buf,p=>{const el=$('#xsProg');if(el)el.textContent=`分析中 ${Math.round(p*100)}%`});if(!$('#xsSpec'))return;$('#xsProg').remove();
+ if(XS.audio)XS.audio.pause();const au=new Audio(URL.createObjectURL(r.audio));XS.audio=au;
+ const fTop=A.fTop,BANDS={full:[0,fTop],low:[0,Math.min(1000,fTop)],mid:[1000,Math.min(4000,fTop)],high:[Math.min(4000,fTop*.5),fTop]},BN={full:'全頻',low:'低頻',mid:'中頻',high:'高頻'};
+ const V={t0:0,t1:A.dur,band:'full',fr:BANDS.full,map:'moss',range:60,topOff:0,top:A.autoTop,gamma:1,sel:null,loop:false,rate:1,keep:true,z:1};let lut=mxLut(MX_MAPS.moss);
+ const spec=$('#xsSpec'),wave=$('#xsWave'),ov=$('#xsOv'),mob=matchMedia('(max-width:640px)').matches,GL=mob?38:50,GR=10;
+ let dpr=1,sC,wC,oC,specCache=null,waveCache=null,ovCache=null,W=0,SH=0,WH=0,OH=0;
+ const plotW=()=>W-GL-GR,tx=t=>GL+(t-V.t0)/(V.t1-V.t0)*plotW(),xt=x=>V.t0+(x-GL)/plotW()*(V.t1-V.t0);
+ const size=()=>{dpr=devicePixelRatio||1;W=spec.getBoundingClientRect().width;SH=mob?190:250;WH=mob?110:130;OH=30;for(const[cv,h]of[[spec,SH],[wave,WH],[ov,OH]]){cv.style.height=h+'px';cv.width=Math.round(W*dpr);cv.height=Math.round(h*dpr)}sC=spec.getContext('2d');wC=wave.getContext('2d');oC=ov.getContext('2d')};
+ const build=()=>{V.top=A.autoTop+V.topOff;
+  // spectrum window (dark) + Hz gutter (cream)
+  specCache=document.createElement('canvas');specCache.width=spec.width;specCache.height=spec.height;let c=specCache.getContext('2d');c.fillStyle='#F5F3EE';c.fillRect(0,0,specCache.width,specCache.height);
+  const px=Math.round(GL*dpr),pw=Math.round(plotW()*dpr),ph=Math.round((SH-4)*dpr);mxSpecPlot(c,px,0,pw,ph,A,V,lut);
+  c.save();c.scale(dpr,dpr);c.strokeStyle='rgba(255,255,255,.07)';const st=mxNice(V.t1-V.t0,Math.max(3,plotW()/90));for(let v=Math.ceil(V.t0/st)*st;v<=V.t1;v+=st){c.fillStyle='rgba(255,255,255,.07)';c.fillRect(tx(v),0,1,SH-4)}
+  mxHzAxis(c,GL,0,SH-4,V,10,'#6B6A63');c.fillStyle='#6B6A63';c.font='600 9px "IBM Plex Mono",monospace';c.textAlign='left';c.textBaseline='top';c.fillText('Hz',2,2);c.restore();
+  waveCache=document.createElement('canvas');waveCache.width=wave.width;waveCache.height=wave.height;c=waveCache.getContext('2d');c.fillStyle='#F5F3EE';c.fillRect(0,0,waveCache.width,waveCache.height);c.save();c.scale(dpr,dpr);
+  c.fillStyle='#FBFAF6';c.fillRect(GL,0,plotW(),WH-24);mxWavePlot(c,GL,0,plotW(),WH-24,A,V,'#2E5E50');for(let v=Math.ceil(V.t0/st)*st;v<=V.t1;v+=st){c.fillStyle='rgba(47,46,42,.07)';c.fillRect(tx(v),0,1,WH-24)}
+  mxTimeAxis(c,GL,WH-22,plotW(),V,10,'#6B6A63');c.fillStyle='#6B6A63';c.font='600 9px "IBM Plex Mono",monospace';c.textAlign='left';c.textBaseline='top';c.fillText('波形',2,2);c.restore();
+  ovCache=document.createElement('canvas');ovCache.width=ov.width;ovCache.height=ov.height;c=ovCache.getContext('2d');c.save();c.scale(dpr,dpr);c.fillStyle='#ECE7DB';c.fillRect(GL,2,plotW(),OH-4);
+  const full={t0:0,t1:A.dur};const pk=calcPeaks(A.mono,Math.max(10,Math.round(plotW())));c.fillStyle='rgba(46,94,80,.55)';pk.forEach((v,i)=>{const h=Math.max(1,v*(OH-8));c.fillRect(GL+i,OH/2-h/2,1,h)});c.fillStyle='#6B6A63';c.font='600 9px "IBM Plex Mono",monospace';c.textBaseline='middle';c.fillText('總覽',2,OH/2);c.restore();
+  paint();info()};
+ const paint=()=>{if(!specCache)return;const t=au.currentTime||0;
+  for(const[ctx,cache,h,dark]of[[sC,specCache,SH-4,true],[wC,waveCache,WH-24,false]]){ctx.setTransform(1,0,0,1,0,0);ctx.drawImage(cache,0,0);ctx.setTransform(dpr,0,0,dpr,0,0);
+   if(V.sel&&!(V.sel[0]<=V.t0+1e-6&&V.sel[1]>=V.t1-1e-6)){const a=Math.max(GL,tx(V.sel[0])),b=Math.min(W-GR,tx(V.sel[1]));if(b>a){ctx.fillStyle=dark?'rgba(247,239,178,.16)':'rgba(46,94,80,.12)';ctx.fillRect(a,0,b-a,h);ctx.fillStyle=dark?'rgba(247,239,178,.8)':'rgba(46,94,80,.7)';ctx.fillRect(a,0,1,h);ctx.fillRect(b-1,0,1,h)}}
+   if(t>=V.t0&&t<=V.t1){ctx.fillStyle=dark?'#F7EFB2':'#C7886D';ctx.fillRect(tx(t)-1,0,2,h)}}
+  oC.setTransform(1,0,0,1,0,0);oC.clearRect(0,0,ov.width,ov.height);oC.drawImage(ovCache,0,0);oC.setTransform(dpr,0,0,dpr,0,0);const k=plotW()/A.dur;
+  oC.strokeStyle='#2F2E2A';oC.lineWidth=1.5;oC.strokeRect(GL+V.t0*k,1.5,Math.max(3,(V.t1-V.t0)*k),OH-3);if(V.sel){oC.fillStyle='rgba(199,136,109,.35)';oC.fillRect(GL+V.sel[0]*k,2,Math.max(1,(V.sel[1]-V.sel[0])*k),OH-4)}oC.fillStyle='#C7886D';oC.fillRect(GL+t*k-1,0,2,OH);
+  $('#xsTime').textContent=`${fmt(t,2)} / ${fmt(A.dur,2)}`;const p=!au.paused,b=$('#xsPlay');if(b){b.innerHTML=ic(p?'pause':'play');b.setAttribute('aria-label',p?'暫停':'播放')}};
+ const info=()=>{const[f0,f1]=V.fr;$('#xsRange').textContent=`觀察 ${V.t0.toFixed(2)}–${V.t1.toFixed(2)} 秒 · ${BN[V.band]} ${Math.round(f0).toLocaleString()}–${Math.round(f1).toLocaleString()} Hz · ${V.range} dB${V.sel?` · 選取 ${V.sel[0].toFixed(2)}–${V.sel[1].toFixed(2)} 秒`:''}`;
+  $('#xsZsel').disabled=!V.sel;$('#xsClr').disabled=!V.sel;$('#xsLoop').disabled=false;
+  const bd=$('#xsBadge');bd.hidden=V.rate===1;bd.textContent=`變速中 ${V.rate}× · ${V.keep?'保持音高':'音高跟著變'}`;
+  $$('[data-z]',sh).forEach(b=>b.setAttribute('aria-pressed',+b.dataset.z===V.z));$('#xsSlow').disabled=V.rate===1};
+ const setView=(a,b)=>{const span=Math.max(.05,Math.min(A.dur,b-a));a=Math.max(0,Math.min(A.dur-span,a));V.t0=a;V.t1=a+span;build()};
+ const zoom=z=>{V.z=z;const span=A.dur/z,c=V.sel?(V.sel[0]+V.sel[1])/2:(au.currentTime||0);setView(c-span/2,c+span/2)};
+ const seek=t=>{au.currentTime=Math.max(0,Math.min(A.dur-.005,t));paint()};
+ const loop=()=>{const t=au.currentTime;if(V.loop&&V.sel&&(t>=V.sel[1]||t<V.sel[0]-.05))au.currentTime=V.sel[0];
+  else if(!V.loop&&V.z>1&&(t>V.t1||t<V.t0)){const span=V.t1-V.t0;setView(t-span*.1,t+span*.9);return XS.raf=requestAnimationFrame(loop)}
+  paint();if(!au.paused)XS.raf=requestAnimationFrame(loop)};
+ const applyRate=()=>{au.playbackRate=V.rate;au.preservesPitch=au.mozPreservesPitch=au.webkitPreservesPitch=V.keep;info()};
+ $('#xsPlay').disabled=false;$('#xsPng').disabled=false;
+ $('#xsPlay').onclick=async()=>{if(!au.paused){au.pause();paint();return}stopAll();XS.audio=au;applyRate();if(V.loop&&V.sel&&(au.currentTime<V.sel[0]||au.currentTime>=V.sel[1]))au.currentTime=V.sel[0];else if(au.currentTime>=A.dur-.02)au.currentTime=V.sel?V.sel[0]:0;try{await au.play();loop()}catch(e){toast('無法播放：'+e.message,'err')}};
+ au.onended=()=>{if(V.loop&&V.sel){au.currentTime=V.sel[0];au.play();return}cancelAnimationFrame(XS.raf);paint()};
+ $('#xsLoop').onclick=()=>{if(!V.sel){toast('先在頻譜或波形上拖曳，框選一段要循環的片段');return}V.loop=!V.loop;$('#xsLoop').setAttribute('aria-pressed',V.loop);if(V.loop&&au.paused)$('#xsPlay').click()};
+ $$('[data-rate]',sh).forEach(b=>b.onclick=()=>{V.rate=+b.dataset.rate;$$('[data-rate]',sh).forEach(x=>x.setAttribute('aria-pressed',x===b));applyRate()});
+ $('#xsKeep').onchange=e=>{V.keep=e.target.checked;applyRate()};
+ $$('[data-z]',sh).forEach(b=>b.onclick=()=>zoom(+b.dataset.z));
+ $$('[data-band]',sh).forEach(b=>b.onclick=()=>{V.band=b.dataset.band;V.fr=BANDS[V.band];$$('[data-band]',sh).forEach(x=>x.setAttribute('aria-pressed',x===b));build()});
+ $$('[data-map]',sh).forEach(b=>b.onclick=()=>{V.map=b.dataset.map;lut=mxLut(MX_MAPS[V.map]);$$('[data-map]',sh).forEach(x=>x.setAttribute('aria-pressed',x===b));build()});
+ const sl=(id,k,fmtv)=>{const i=$('#'+id);i.oninput=()=>{V[k]=+i.value;$('#'+id.replace('In','V')).textContent=fmtv(V[k]);build()}};
+ sl('xsRangeIn','range',v=>v+' dB');sl('xsTopIn','topOff',v=>(v>0?'+':v<0?'':'±')+v);sl('xsGamIn','gamma',v=>v.toFixed(2));
+ $('#xsReset').onclick=()=>{Object.assign(V,{range:60,topOff:0,gamma:1});$('#xsRangeIn').value=60;$('#xsTopIn').value=0;$('#xsGamIn').value=1;$('#xsRangeV').textContent='60 dB';$('#xsTopV').textContent='±0';$('#xsGamV').textContent='1.00';build()};
+ $('#xsZsel').onclick=()=>{if(V.sel){V.z=0;setView(V.sel[0],V.sel[1])}};$('#xsClr').onclick=()=>{V.sel=null;V.loop=false;$('#xsLoop').setAttribute('aria-pressed','false');paint();info()};
+ // pointer: tap = seek, horizontal drag = select. Same mapping for spectrum and waveform.
+ for(const cv of[spec,wave]){let d=null;
+  cv.addEventListener('pointerdown',e=>{const rc=cv.getBoundingClientRect(),x=e.clientX-rc.left;if(x<GL-4)return;d={x0:x,y0:e.clientY,t0:xt(x),drag:false,id:e.pointerId}});
+  cv.addEventListener('pointermove',e=>{const rc=cv.getBoundingClientRect(),x=e.clientX-rc.left,y=e.clientY-rc.top;
+   if(cv===spec&&x>=GL&&x<=W-GR){const t=xt(x),f=V.fr[1]-y/(SH-4)*(V.fr[1]-V.fr[0]),fi=Math.max(0,Math.min(A.frames-1,Math.round((t*A.sr-A.N/2)/A.hop))),bi=Math.max(0,Math.min(A.bins-1,Math.round(f/A.binHz))),db=A.S[fi*A.bins+bi]/255*120-120;$('#xsCur').textContent=`${t.toFixed(3)} 秒 · ${Math.round(Math.max(0,f)).toLocaleString()} Hz · ${db<=-119?'無聲':db.toFixed(0)+' dB'}`}
+   if(!d)return;if(!d.drag&&Math.abs(x-d.x0)>6&&Math.abs(x-d.x0)>Math.abs(e.clientY-d.y0)){d.drag=true;try{cv.setPointerCapture(d.id)}catch{}}
+   if(d.drag){e.preventDefault();const t=Math.max(0,Math.min(A.dur,xt(x)));V.sel=[Math.min(d.t0,t),Math.max(d.t0,t)];paint();info()}});
+  const up=e=>{if(!d)return;const rc=cv.getBoundingClientRect(),x=e.clientX-rc.left;if(!d.drag){const t=xt(x);if(V.sel&&(t<V.sel[0]||t>V.sel[1])&&!V.loop){V.sel=null;info()}seek(t)}else if(V.sel&&V.sel[1]-V.sel[0]<.02){V.sel=null;info()}else{seek(V.sel[0])}d=null};
+  cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',()=>d=null)}
+ {let drag=null;ov.addEventListener('pointerdown',e=>{const rc=ov.getBoundingClientRect(),t=(e.clientX-rc.left-GL)/plotW()*A.dur;ov.setPointerCapture(e.pointerId);const span=V.t1-V.t0;drag={off:t>=V.t0&&t<=V.t1?t-V.t0:span/2};setView(t-drag.off,t-drag.off+span)});
+  ov.addEventListener('pointermove',e=>{if(!drag)return;const rc=ov.getBoundingClientRect(),t=(e.clientX-rc.left-GL)/plotW()*A.dur,span=V.t1-V.t0;setView(t-drag.off,t-drag.off+span)});ov.addEventListener('pointerup',()=>drag=null)}
+ $('#xsWin').addEventListener('keydown',e=>{const span=V.t1-V.t0;if(e.key==='ArrowRight')setView(V.t0+span*.2,V.t1+span*.2);else if(e.key==='ArrowLeft')setView(V.t0-span*.2,V.t1-span*.2);else if(e.key===' '){$('#xsPlay').click()}else return;e.preventDefault()});
+ // PNG of the current view (same data, same settings), rendered at export resolution
+ $('#xsPng').onclick=async()=>{await fontsReady();const EW=1600,EH=1180,c=document.createElement('canvas');c.width=EW;c.height=EH;const x=c.getContext('2d');x.fillStyle='#F5F3EE';x.fillRect(0,0,EW,EH);
+  x.fillStyle='#2F2E2A';x.textBaseline='alphabetic';x.textAlign='left';x.font='700 50px "Noto Serif TC",serif';x.fillText(r.name||'聲音標本',80,118);
+  x.fillStyle='#6B6A63';x.font='500 20px "IBM Plex Mono",monospace';x.fillText(`NO.${String(r.no||0).padStart(3,'0')} · ${(r.date||'').replaceAll('-','.')} · ${fmt(A.dur,2)}${petNameOf(r)?' · '+petNameOf(r):''}`,80,160);
+  x.fillText(`觀察 ${V.t0.toFixed(2)}–${V.t1.toFixed(2)} s · ${BN[V.band]} ${Math.round(V.fr[0])}–${Math.round(V.fr[1])} Hz · ${V.range} dB · ${MX_MAPN[V.map]}`,80,192);
+  const L0=150,R0=60,PW=EW-L0-R0,SY=230,SHh=560,WY=SY+SHh+26,WHh=200;
+  mxSpecPlot(x,L0,SY,PW,SHh,A,V,lut);mxHzAxis(x,L0,SY,SHh,V,18,'#6B6A63');x.fillStyle='#6B6A63';x.font='600 16px "IBM Plex Mono",monospace';x.textAlign='left';x.fillText('Hz',80,SY+18);
+  x.fillStyle='#FBFAF6';x.fillRect(L0,WY,PW,WHh);mxWavePlot(x,L0,WY,PW,WHh,A,V,'#2E5E50');
+  if(V.sel){const k=PW/(V.t1-V.t0),a=L0+Math.max(0,V.sel[0]-V.t0)*k,b=L0+Math.min(V.t1-V.t0,V.sel[1]-V.t0)*k;if(b>a){x.fillStyle='rgba(247,239,178,.18)';x.fillRect(a,SY,b-a,SHh);x.fillStyle='rgba(46,94,80,.12)';x.fillRect(a,WY,b-a,WHh)}}
+  mxTimeAxis(x,L0,WY+WHh+6,PW,V,18,'#6B6A63');x.fillStyle='#6B6A63';x.font='600 16px "IBM Plex Mono",monospace';x.textAlign='left';x.textBaseline='alphabetic';x.fillText('波形',80,WY+24);
+  x.font='400 18px "Noto Sans TC",sans-serif';x.fillText('上方為頻譜（亮色代表該頻率能量較高），下方為同一時間範圍的波形。僅供觀察，不代表健康或情緒判斷。',80,EH-50);
+  const pt=r.petId&&petById(r.petId);if(pt&&pt.stamp)drawPetStamp(x,EW-140,120,58,pt);
+  if(LOGO.complete&&LOGO.naturalWidth){const lh=28,lw=lh*LOGO.naturalWidth/LOGO.naturalHeight;x.globalAlpha=.75;x.drawImage(LOGO,EW-60-lw,EH-74,lw,lh);x.globalAlpha=1}
+  c.toBlob(b=>b&&offerFile(b,`${safeName(r.name)}_顯微鏡_${V.t0.toFixed(1)}-${V.t1.toFixed(1)}s.png`,'顯微鏡畫面做好了','1600×1180 的圖片，包含目前觀察範圍的頻譜、波形與標本資訊。'),'image/png')};
+ $('#xsSlow').onclick=()=>{if(V.rate===1)return;const a=V.sel?Math.floor(V.sel[0]*A.sr):0,b=V.sel?Math.floor(V.sel[1]*A.sr):A.mono.length,src=A.mono.subarray(a,b),n=Math.floor(src.length/V.rate),out=new Float32Array(n);
+  for(let i=0;i<n;i++){const p=i*V.rate,j=Math.floor(p),f=p-j;out[i]=(src[j]||0)*(1-f)+(src[j+1]||0)*f}
+  offerFile(encodeWav(out,A.sr),`${safeName(r.name)}_${V.rate}x.wav`,'慢速音檔做好了',`${V.rate}× 速度、長度 ${fmt(n/A.sr,1)}${V.sel?'（選取片段）':''}。音高會跟著變低。`)};
+ size();build();
+ const ro=new ResizeObserver(()=>{const w=spec.getBoundingClientRect().width;if(Math.abs(w-W)>2){size();build()}});ro.observe(spec);
+ $('#detail').addEventListener('close',()=>ro.disconnect(),{once:true})}
 
 /* ---------- 拼貼工作室（簡化版） ---------- */
 const CL={sel:[],fade:.3,gap:.5};
