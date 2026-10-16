@@ -884,6 +884,13 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 .mx-maps button i{width:30px;height:12px;border-radius:6px;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}.mx-maps button[aria-pressed=true]{border-color:#2F2E2A;box-shadow:0 0 0 1px #2F2E2A}
 .mx-cust{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center}.mx-cc{display:inline-flex;align-items:center;gap:4px;font-size:12px}.mx-cc input{width:34px;height:28px;border:none;padding:0;background:none;cursor:pointer}
 @media(max-width:899px){.chest-empty .d-extra{display:none}}
+.vcard{background:#FBFAF6;border-radius:12px;box-shadow:0 12px 30px rgba(47,46,42,.10),0 0 0 1px rgba(47,46,42,.08);padding:16px 18px 12px;margin:0 0 16px}
+.vc-head{display:flex;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}.vc-head .ic{width:30px;height:30px;color:var(--lake-d,#43554D);flex:none}.vc-head div{flex:1;min-width:0;display:grid}.vc-head b{font-size:16px}.vc-head .mono{font-size:11px;color:#74736E;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.vc-head em{font-style:normal;font-size:12px;color:#74736E;white-space:nowrap}
+.vc-tree{list-style:none;margin:8px 0 10px;padding:0}.vc-tree li{display:grid;grid-template-columns:22px auto 1fr;gap:8px;align-items:center;padding:8px 2px;border-bottom:1px dashed rgba(47,46,42,.1);font-size:14px}.vc-tree li:last-child{border-bottom:none}.vc-tree i{font-style:normal;color:#B48A3C;text-align:center}.vc-tree b{font:500 13px "IBM Plex Mono",monospace;color:#2E5E50}.vc-tree span{color:#74736E;font-size:13px;text-align:right}
+.vc-status{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;background:rgba(47,46,42,.05);border-radius:8px;padding:9px 12px;font-size:14px;font-weight:600}.vc-status .mono{font-size:11px;font-weight:500;color:#74736E}
+.vc-status.ok{background:rgba(46,94,80,.09);color:#2E5E50}.vc-status.warn{background:rgba(199,136,109,.14);color:#A0583A}
+.vdest{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:14px 0 4px}.vdest .mono{font-size:11px;color:#74736E;margin-right:4px}.vdest span:not(.mono){font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid rgba(47,46,42,.14);background:#FBFAF6}
+.vmini{margin-top:14px}.vmini>div{padding:9px 0!important;font-size:14px}
 </style>
 </head>
 <body>
@@ -1011,12 +1018,14 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
     <div class="vault">
           <div class="paper">
             <div class="home-tip" id="homeTip"></div>
-            <h3 id="vH"></h3>
-            <div class="vstat" id="vstat"></div>
+            <h3 id="vH" class="sr"></h3>
+            <div class="vcard" id="vcard"></div>
             <div class="vbtns">
               <button class="btn primary" id="bkBtn"></button>
               <label class="btn ghost file" id="rsLbl"><input type="file" accept=".zip,application/zip" id="rsIn" class="sr"></label>
             </div>
+            <div class="vdest"><span class="mono">建議存到</span><span>Google 雲端硬碟</span><span>iCloud 雲碟</span><span>另一台裝置</span></div>
+            <div class="vstat vmini" id="vstat"></div>
           </div>
           <div class="paper">
             <h3>聲音存在哪裡？</h3>
@@ -1815,7 +1824,11 @@ async function renderVault(){renderHomeTip();
  let persisted=null,usage='—',own=0;for(const r of items){own+=(r.audio&&r.audio.size||0)+(r.cover&&r.cover.size||0)+(r.coverOrig&&r.coverOrig!==r.cover&&r.coverOrig.size||0)}try{if(navigator.storage){if(navigator.storage.persisted)persisted=await navigator.storage.persisted();if(navigator.storage.estimate){const e=await navigator.storage.estimate();usage=((e.usage||0)/1048576).toFixed(1)+' MB'}}}catch{}
  const last=store.get('lsa-lastBackup');
  $('#vH').innerHTML=ic('shield')+(un?`有 ${un} 件收藏僅存本機`:(items.length?'所有收藏都已產生備份檔':'還沒有需要備份的聲音收藏'));
- $('#vstat').innerHTML=`<div><span>收藏總數</span><b>${items.length} 件</b></div><div><span>僅存本機</span><b style="color:${un?'var(--clay)':'inherit'}">${un} 件</b></div><div><span>上次產生備份檔</span><b>${last?new Date(+last).toLocaleString('zh-TW',{hour12:false}):'從未備份'}</b></div><div><span>防自動清除 <button type="button" class="qmark" data-tip="persist" aria-label="這是什麼？">?</button></span><b>${persisted===true?'已開啟':persisted===false?'未開啟':'不支援'}</b></div><div><span>聲音檔案占用空間</span><b>${own<1048576?(own/1024).toFixed(0)+' KB':(own/1048576).toFixed(1)+' MB'}</b></div><div><span>此網址總用量</span><b title="同一網址下其他網頁的資料也會算在內">${usage}</b></div>`;
+ {const covers=items.filter(r=>r.cover).length,pn=pets.length,pp=pets.filter(p=>p.photo).length,d=new Date(),z=n=>String(n).padStart(2,'0'),fn=`little-sounds-backup-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}.zip`,sz=own<1048576?(own/1024).toFixed(0)+' KB':(own/1048576).toFixed(1)+' MB';
+  $('#vcard').innerHTML=`<div class="vc-head">${ic('box')}<div><b>完整備份檔</b><span class="mono">${items.length?fn:'收藏後就能建立備份'}</span></div><em class="mono">約 ${sz}</em></div>
+  <ul class="vc-tree"><li><i>♪</i><b>audio/</b><span>${items.length} 段原始聲音</span></li><li><i>▣</i><b>covers/</b><span>${covers} 張卡匣封面照片</span></li><li><i>✿</i><b>pets/</b><span>${pn} 位毛孩${pp?`・${pp} 張大頭照`:''}</span></li><li><i>≡</i><b>manifest.json</b><span>名字、日期、小故事與標籤</span></li></ul>
+  <div class="vc-status ${un?'warn':items.length?'ok':''}"><span>${un?`有 ${un} 件收藏還沒備份`:items.length?'✓ 所有收藏都已備份':'還沒有需要備份的聲音收藏'}</span><span class="mono">${last?'上次備份 '+new Date(+last).toLocaleDateString('zh-TW'):'從未備份'}</span></div>`}
+ $('#vstat').innerHTML=`<div><span>防自動清除 <button type="button" class="qmark" data-tip="persist" aria-label="這是什麼？">?</button></span><b>${persisted===true?'已開啟':persisted===false?'未開啟':'不支援'}</b></div><div><span>聲音檔案占用空間</span><b>${own<1048576?(own/1024).toFixed(0)+' KB':(own/1048576).toFixed(1)+' MB'}</b></div><div><span>此網址總用量</span><b title="同一網址下其他網頁的資料也會算在內">${usage}</b></div>`;
  $('#bkBtn').disabled=!items.length;
  const glow=un>=3;$('#vault').classList.toggle('glow',glow);
  const nv=$('#navVault');const dot=nv.querySelector('.dot');if(glow&&!dot){const s=document.createElement('span');s.className='dot';nv.appendChild(s);nv.setAttribute('aria-label',`保險箱，有 ${un} 件未備份`)}else if(!glow&&dot){dot.remove();nv.removeAttribute('aria-label')}
