@@ -183,6 +183,12 @@ textarea{resize:vertical;min-height:70px}
 .chip-x{display:inline-grid;place-items:center;width:28px;height:28px;margin-left:-6px;margin-right:4px;border:none;border-radius:50%;background:var(--clay);color:#fff;cursor:pointer;padding:0;vertical-align:middle}
 .chip-x .ic{width:14px;height:14px;stroke-width:2.2}
 .tag-add{margin-top:10px}
+.cpal{margin-top:12px;padding:12px;border-radius:12px;background:rgba(255,255,255,.5);border:1px solid var(--line)}
+.cpal .zoom{max-width:none}.cpal .lbl{font-size:14px;font-weight:700;white-space:nowrap}
+.cpicks{display:flex;flex-wrap:wrap;gap:10px;margin:6px 0 8px}
+.cpicks label{display:grid;justify-items:center;gap:2px;font-size:12px;font-family:var(--mono);color:var(--ink-s)}
+.cpicks input[type=color]{width:48px;height:48px;padding:0;border:1px solid var(--line);border-radius:12px;background:none;cursor:pointer}
+.cpicks input[type=color]::-webkit-color-swatch-wrapper{padding:3px}.cpicks input[type=color]::-webkit-color-swatch{border:none;border-radius:9px}
 .sw{display:inline-block;width:30px;height:10px;border-radius:5px;margin-right:8px;box-shadow:inset 0 0 0 .5px rgba(0,0,0,.15)}
 .cover-thumb{width:64px;height:64px;border-radius:10px;background:var(--bg) center/cover;box-shadow:inset 0 0 0 1px var(--line)}
 .hint{font-size:13px;color:var(--ink-s)}
@@ -523,6 +529,7 @@ PL.audio.addEventListener('ended',()=>{cancelAnimationFrame(PL.raf);PL.audio.cur
 
 /* ---------- card drawing ---------- */
 const imgCache=new Map();
+async function safeImg(blob,key){try{return await loadImg(blob,key)}catch(e){console.warn('image',e);return null}}
 async function loadImg(blob,key){if(!blob)return null;if(key&&imgCache.has(key))return imgCache.get(key);let img=null;
  try{const url=URL.createObjectURL(blob);const el=new Image();el.src=url;if(el.decode)await el.decode();else await new Promise((res,rej)=>{el.onload=res;el.onerror=rej});if(!el.naturalWidth)throw new Error('empty');img=el}
  catch{try{img=await createImageBitmap(blob)}catch{throw new Error('這張照片無法讀取')}}
@@ -569,7 +576,9 @@ const PALETTES={
  clay:{name:'陶土暮色',stops:['#DDB08E','#C88B6A','#B5523F','#B56B78','#7E6A93']},
  wood:{name:'木抽屜',stops:['#D2B48F','#A9875F','#6B5236','#A9875F','#5F7F6F']},
  ink:{name:'墨線',stops:['#43554D','#43554D']}};
-const palOf=r=>PALETTES[r&&r.palette]||PALETTES.lake;
+const DEF_CUSTOM=['#6FAE9B','#C88B6A','#7E6A93'];
+const cleanStops=a=>(Array.isArray(a)?a:[]).filter(c=>/^#[0-9a-f]{6}$/i.test(c)).slice(0,6);
+const palOf=r=>{if(r&&r.palette==='custom'){const st=cleanStops(r.customStops);if(st.length)return{name:'自訂',stops:st.length===1?[st[0],st[0]]:st}}return PALETTES[r&&r.palette]||PALETTES.lake};
 function palAt(stops,t){const hex=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));const s=Math.max(0,Math.min(1,t))*(stops.length-1),i=Math.min(stops.length-2,Math.floor(s)),f=s-i,A=hex(stops[i]),B=hex(stops[i+1]);return`rgb(${A.map((v,k)=>Math.round(v+(B[k]-v)*f)).join(',')})`}
 // thin, mirrored hairline waveform with a colour gradient along time; y is the centre line
 function thinWave(c,x,y,w,h,peaks,pal,o={}){
@@ -580,7 +589,7 @@ function thinWave(c,x,y,w,h,peaks,pal,o={}){
   if(o.dim&&o.dim(t)){col='#43554D';al=.16}else if(o.progress!=null&&t>o.progress)al=o.unplayed==null?.32:o.unplayed;
   c.globalAlpha=al;c.strokeStyle=col;c.beginPath();c.moveTo(px,y-hh);c.lineTo(px,y+hh);c.stroke()}
  c.restore()}
-function cardMeta(r){return{palette:r.palette,no:r.no,name:r.name,date:r.date,type:r.type,customType:r.customType,story:r.story,pet:r.pet,peaks:r.peaks,duration:r.duration}}
+function cardMeta(r){return{palette:r.palette,customStops:r.customStops,no:r.no,name:r.name,date:r.date,type:r.type,customType:r.customType,story:r.story,pet:r.pet,peaks:r.peaks,duration:r.duration}}
 
 /* ---------- form component ---------- */
 function formHTML(p){return `
@@ -589,7 +598,8 @@ function formHTML(p){return `
 <fieldset class="fld"><legend>聲音類型</legend><div class="chips" id="${p}type">${TYPES.map(t=>`<label class="chip"><input type="radio" name="${p}type" value="${t.id}"><span>${t.name}</span></label>`).join('')}</div></fieldset>
 <div class="fld" id="${p}ctypeWrap" hidden><label for="${p}ctype">自訂聲音的名稱</label><input type="text" id="${p}ctype" maxlength="10" autocomplete="off" placeholder="例如：打噴嚏、伸懶腰、碎碎念"></div>
 <div class="fld"><label for="${p}story">一句小故事</label><textarea id="${p}story" maxlength="60" rows="2" placeholder="例如：每天下午三點，牠都會在窗邊睡著。"></textarea></div>
-<fieldset class="fld"><legend>波紋配色</legend><div class="chips" id="${p}pal">${Object.entries(PALETTES).map(([k,v])=>`<label class="chip"><input type="radio" name="${p}pal" value="${k}"><span><i class="sw" style="background:linear-gradient(90deg,${v.stops.join(',')})"></i>${v.name}</span></label>`).join('')}</div></fieldset>
+<fieldset class="fld"><legend>波紋配色</legend><div class="chips" id="${p}pal">${Object.entries(PALETTES).map(([k,v])=>`<label class="chip"><input type="radio" name="${p}pal" value="${k}"><span><i class="sw" style="background:linear-gradient(90deg,${v.stops.join(',')})"></i>${v.name}</span></label>`).join('')}<label class="chip"><input type="radio" name="${p}pal" value="custom"><span><i class="sw" id="${p}csw"></i>自訂</span></label></div>
+<div class="cpal" id="${p}cpal" hidden><label class="zoom"><span class="lbl">顏色數量</span><input type="range" min="1" max="6" step="1" id="${p}cn" aria-label="漸層顏色數量"><b id="${p}cnv" class="mono"></b></label><div class="cpicks" id="${p}cpicks"></div><small class="hint">由左到右依序漸變；只選 1 個就是單色。</small></div></fieldset>
 <fieldset class="fld"><legend>情緒標籤 <small>由你來選，不是 AI 判斷</small></legend><div class="chips" id="${p}tags"></div>
 <div class="row tag-add"><input type="text" id="${p}newtag" maxlength="8" autocomplete="off" placeholder="新增自己的標籤" aria-label="新增情緒標籤"><button type="button" class="btn ghost sm" id="${p}addtag">${ic('check')}新增</button><button type="button" class="btn text sm" id="${p}mgr" aria-pressed="false">${ic('edit')}管理標籤</button></div></fieldset>
 <div class="fld"><span class="lbl">封面照片</span>
@@ -603,8 +613,16 @@ function bindForm(root,p,data,onChange){
  const fire=()=>onChange&&onChange(get());
  f.name.value=data.name||'';f.pet.value=data.pet||'';f.date.value=data.date||today();f.story.value=data.story||'';f.ctype.value=data.customType||'';
  $$(`input[name=${p}type]`).forEach(i=>i.checked=i.value===(data.type||'nap'));
- $$(`input[name=${p}pal]`).forEach(i=>i.checked=i.value===(PALETTES[data.palette]?data.palette:'lake'));
+ $$(`input[name=${p}pal]`).forEach(i=>i.checked=i.value===((PALETTES[data.palette]||data.palette==='custom')?data.palette:'lake'));
  const curPal=()=>($(`input[name=${p}pal]:checked`)||{}).value||'lake';
+ let cst=cleanStops(data.customStops);if(!cst.length)cst=DEF_CUSTOM.slice();
+ const pool6=[...cst];while(pool6.length<6)pool6.push(['#6FAE9B','#C88B6A','#7E6A93','#A9875F','#B5523F','#43554D'][pool6.length]);
+ const paintSw=()=>{const st=cst.length===1?[cst[0],cst[0]]:cst;$p('csw').style.background=`linear-gradient(90deg,${st.join(',')})`};
+ const renderPicks=()=>{$p('cn').value=cst.length;$p('cnv').textContent=cst.length;$p('cpicks').innerHTML=cst.map((c,i)=>`<label><input type="color" value="${c}" data-i="${i}" aria-label="第 ${i+1} 個顏色">${i+1}</label>`).join('');paintSw()};
+ const syncPal=()=>{$p('cpal').hidden=curPal()!=='custom'};
+ $p('cn').addEventListener('input',e=>{e.stopPropagation();const n=+e.target.value;cst.forEach((c,i)=>pool6[i]=c);cst=pool6.slice(0,n);renderPicks();fire()});
+ $p('cpicks').addEventListener('input',e=>{e.stopPropagation();const i=+e.target.dataset.i;if(isNaN(i))return;cst[i]=e.target.value;pool6[i]=e.target.value;paintSw();fire()});
+ renderPicks();syncPal();
  const curType=()=>($(`input[name=${p}type]:checked`)||{}).value||'nap';
  const syncType=()=>{$p('ctypeWrap').hidden=curType()!=='custom'};syncType();
  // tags
@@ -623,7 +641,7 @@ function bindForm(root,p,data,onChange){
  const geo=()=>{if(!nat)return null;const FW=frame.clientWidth||300,FH=FW*150/252,s=Math.max(FW/nat.w,FH/nat.h)*crop.z,hx=FW/(2*nat.w*s),hy=FH/(2*nat.h*s);crop.cx=Math.min(1-hx,Math.max(hx,crop.cx));crop.cy=Math.min(1-hy,Math.max(hy,crop.cy));return{FW,FH,s}};
  const place=()=>{const g=geo();if(!g)return;cimg.style.width=nat.w*g.s+'px';cimg.style.height=nat.h*g.s+'px';cimg.style.transform=`translate(${g.FW/2-crop.cx*nat.w*g.s}px,${g.FH/2-crop.cy*nat.h*g.s}px)`};
  const gen=()=>{clearTimeout(gt);pend=new Promise(res=>{gt=setTimeout(async()=>{try{cover=await renderCrop(orig,crop)}catch{}res();fire()},180)});return pend};
- const showCover=()=>{$p('crop').hidden=!orig;$p('coverDel').hidden=!orig;$p('coverLbl').textContent=orig?'換一張照片':'選擇照片';if(url){URL.revokeObjectURL(url);url=null}nat=null;if(orig){url=URL.createObjectURL(orig);cimg.onload=()=>{nat={w:cimg.naturalWidth,h:cimg.naturalHeight};zoom.value=crop.z;place()};cimg.src=url}};
+ const showCover=()=>{$p('crop').hidden=!orig;$p('coverDel').hidden=!orig;$p('coverLbl').textContent=orig?'換一張照片':'選擇照片';if(url){URL.revokeObjectURL(url);url=null}nat=null;if(orig){url=URL.createObjectURL(orig);cimg.onload=()=>{nat={w:cimg.naturalWidth,h:cimg.naturalHeight};zoom.value=crop.z;place()};cimg.onerror=()=>{toast('這張封面照片讀不出來，請重新選一張','err')};cimg.src=url}};
  showCover();
  frame.addEventListener('pointerdown',e=>{if(!nat)return;e.preventDefault();frame.setPointerCapture(e.pointerId);let lx=e.clientX,ly=e.clientY;frame.style.cursor='grabbing';
   const mv=ev=>{const g=geo();crop.cx-=(ev.clientX-lx)/(nat.w*g.s);crop.cy-=(ev.clientY-ly)/(nat.h*g.s);lx=ev.clientX;ly=ev.clientY;place()};
@@ -636,9 +654,9 @@ function bindForm(root,p,data,onChange){
  $p('cover').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;try{orig=await shrinkImage(file,1600);crop={z:1,cx:.5,cy:.5};showCover();await gen()}catch{toast('這張照片無法讀取，換一張試試','err')}};
  $p('coverDel').onclick=()=>{orig=null;cover=null;showCover();fire()};
  // general
- const get=()=>({palette:curPal(),name:f.name.value.trim(),pet:f.pet.value.trim(),date:f.date.value||today(),story:f.story.value.trim(),type:curType(),customType:curType()==='custom'?f.ctype.value.trim():'',tags:[...sel],cover,coverOrig:orig,coverCrop:orig?{z:crop.z,cx:crop.cx,cy:crop.cy}:null});
+ const get=()=>({palette:curPal(),customStops:cst.slice(),name:f.name.value.trim(),pet:f.pet.value.trim(),date:f.date.value||today(),story:f.story.value.trim(),type:curType(),customType:curType()==='custom'?f.ctype.value.trim():'',tags:[...sel],cover,coverOrig:orig,coverCrop:orig?{z:crop.z,cx:crop.cx,cy:crop.cy}:null});
  root.addEventListener('input',e=>{if(e.target===f.name&&f.name.value.trim())$p('nameErr').hidden=true;if(e.target!==$p('newtag'))fire()});
- root.addEventListener('change',e=>{if(e.target.name===p+'type')syncType();fire()});
+ root.addEventListener('change',e=>{if(e.target.name===p+'type')syncType();if(e.target.name===p+'pal')syncPal();fire()});
  $p('sug').onclick=()=>{const arr=NAMES[curType()]||NAMES.custom;let n;do{n=arr[Math.floor(Math.random()*arr.length)]}while(arr.length>1&&n===f.name.value);f.name.value=n;$p('nameErr').hidden=true;fire()};
  return{get,flush:()=>pend||Promise.resolve(),validate(){const ok=!!f.name.value.trim();$p('nameErr').hidden=ok;f.name.setAttribute('aria-invalid',ok?'false':'true');if(!ok)f.name.focus();return ok},setType(t){const i=$(`input[name=${p}type][value=${t}]`);if(i){i.checked=true;syncType();fire()}}};
 }
@@ -831,13 +849,13 @@ function stopEd(){if(ED.src){const s=ED.src;ED.src=null;try{s.stop()}catch{}}ED.
 function edBtn(){const a=$('#edAll');if(a)a.innerHTML=ic(ED.playing&&ED.full?'pause':'play')+(ED.playing&&ED.full?'停止':'完整試聽');const b=$('#edPlay');if(!b)return;b.innerHTML=ic(ED.playing&&!ED.full?'pause':'play');b.setAttribute('aria-label',ED.playing?'暫停試聽':'試聽保留片段')}
 function resetEditor(){stopEd();Object.assign(ED,{s:null,ab:null,dirty:false,pk:null,pkN:0});showState('idle')}
 let pvTimer=0;function schedPreview(){if(ED.s)drawEditor();clearTimeout(pvTimer);pvTimer=setTimeout(renderPreview,120)}
-async function renderPreview(){if(!ED.s||!NF)return;const d=NF.get();const a=Math.floor(ED.st*ED.sr),b=Math.floor(ED.en*ED.sr);const img=d.cover?await loadImg(d.cover,null):null;await fontsReady();const cv=$('#pvCard');drawCard(cv.getContext('2d'),cv.width,cv.height,{no:nextNo,name:d.name||'未命名標本',date:d.date,type:d.type,customType:d.customType,story:d.story,pet:d.pet,peaks:calcPeaks(ED.s,320,a,b),palette:d.palette,duration:ED.en-ED.st},{img})}
+async function renderPreview(){if(!ED.s||!NF)return;const d=NF.get();const a=Math.floor(ED.st*ED.sr),b=Math.floor(ED.en*ED.sr);const img=d.cover?await safeImg(d.cover,null):null;await fontsReady();const cv=$('#pvCard');drawCard(cv.getContext('2d'),cv.width,cv.height,{no:nextNo,name:d.name||'未命名標本',date:d.date,type:d.type,customType:d.customType,story:d.story,pet:d.pet,peaks:calcPeaks(ED.s,320,a,b),palette:d.palette,customStops:d.customStops,duration:ED.en-ED.st},{img})}
 async function saveNew(){
  if(!NF.validate()){toast('請先幫標本取個名字','err');return}
  await NF.flush();
  const btn=$('#saveBtn');setLoading(btn,true,'收藏中…');stopAll();
  try{const d=NF.get();const s=processClip(ED.s,ED.sr,ED.st,ED.en,$('#norm').checked);const audio=encodeWav(s,ED.sr);const now=Date.now();
-  const rec={id:uid(),no:0,name:d.name,pet:d.pet,type:d.type,customType:d.customType,palette:d.palette,date:d.date,story:d.story,tags:d.tags,cover:d.cover,coverOrig:d.coverOrig,coverCrop:d.coverCrop,audio,audioType:'audio/wav',duration:s.length/ED.sr,peaks:calcPeaks(s,320),fav:false,createdAt:now,updatedAt:now,backedUp:false};
+  const rec={id:uid(),no:0,name:d.name,pet:d.pet,type:d.type,customType:d.customType,palette:d.palette,customStops:d.customStops,date:d.date,story:d.story,tags:d.tags,cover:d.cover,coverOrig:d.coverOrig,coverCrop:d.coverCrop,audio,audioType:'audio/wav',duration:s.length/ED.sr,peaks:calcPeaks(s,320),fav:false,createdAt:now,updatedAt:now,backedUp:false};
   try{await dbAdd(rec)}catch(e){dbErr(e);return}
   const first=items.length===0;await reload();resetEditor();renderArchive();renderVault();if(first)askPersist();
   toast(`已收進 No.${pad(rec.no)} 抽屜。目前只存在這台裝置，記得到保險箱備份`);
@@ -887,7 +905,7 @@ async function openDetail(id,keepEdit){const r=items.find(x=>x.id===id);if(!r)re
  </div></div></div>`;
  const d=$('#detail');if(!d.open)d.showModal();
  $('#dClose').onclick=()=>d.close();
- await fontsReady();const img=await loadImg(r.cover,r.cover?r.id+':'+r.updatedAt:null);drawCard($('#dCard').getContext('2d'),600,800,cardMeta(r),{img});
+ (async()=>{try{await fontsReady();const img=await safeImg(r.cover,r.cover?r.id+':'+r.updatedAt:null);const cv=$('#dCard');if(cv&&curId===r.id)drawCard(cv.getContext('2d'),600,800,cardMeta(r),{img})}catch(e){console.error(e)}})();
  const drawW=()=>{const cv=$('#dWave');if(!cv)return;const rc=cv.getBoundingClientRect();if(!rc.width)return;const dpr=devicePixelRatio||1;cv.width=Math.round(rc.width*dpr);cv.height=Math.round(rc.height*dpr);const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);const pr=PL.id===r.id&&PL.audio.duration&&PL.audio.currentTime>0?PL.audio.currentTime/PL.audio.duration:null;thinWave(c,0,rc.height/2,rc.width,rc.height-6,r.peaks,palOf(r),{step:3,lw:1.6,progress:pr,unplayed:.3});if(pr!=null){c.fillStyle='#C88B6A';c.fillRect(pr*rc.width-1,0,2,rc.height)}const t=PL.id===r.id?PL.audio.currentTime:0;$('#dTime').textContent=`${fmt(t,1)} / ${fmt(r.duration,1)}`;cv.setAttribute('aria-valuenow',t.toFixed(1));cv.setAttribute('aria-valuetext',fmt(t,1))};
  const setBtn=()=>{const p=!PL.audio.paused&&PL.id===r.id;const b=$('#dPlay');if(b){b.innerHTML=ic(p?'pause':'play');b.setAttribute('aria-label',p?'暫停':'播放')}};
  PL.onTick=()=>{drawW();setBtn()};
@@ -909,7 +927,7 @@ async function openDetail(id,keepEdit){const r=items.find(x=>x.id===id);if(!r)re
 }
 function editDetail(r){stopAll();const sh=$('#detailSheet');
  sh.innerHTML=`<div class="sheet-head"><span class="mono">EDIT · NO. ${pad(r.no)}</span><button class="btn text icon-btn" id="eX" aria-label="取消編輯">${ic('close')}</button></div><div class="sheet-body"><div><canvas class="card" id="eCard" width="600" height="800" aria-label="標本卡預覽"></canvas></div><div><h2 class="d-title" id="dTitle">編輯標本</h2><div class="form" id="eForm"></div><div class="actions"><button class="btn ghost" id="eCancel">取消</button><button class="btn primary" id="eSave">${ic('check')}儲存修改</button></div></div></div>`;
- const draw=async d=>{const img=d.cover?await loadImg(d.cover,null):null;await fontsReady();const cv=$('#eCard');if(cv)drawCard(cv.getContext('2d'),600,800,{...cardMeta(r),...d},{img})};
+ const draw=async d=>{const img=d.cover?await safeImg(d.cover,null):null;await fontsReady();const cv=$('#eCard');if(cv)drawCard(cv.getContext('2d'),600,800,{...cardMeta(r),...d},{img})};
  const F=bindForm($('#eForm'),'e_',r,draw);draw(F.get());
  const back=()=>openDetail(r.id,true);$('#eX').onclick=back;$('#eCancel').onclick=back;
  $('#eSave').onclick=async e=>{if(!F.validate())return;const btn=e.currentTarget;setLoading(btn,true,'儲存中…');await F.flush();const d=F.get();const upd={...r,...d,updatedAt:Date.now(),backedUp:false};try{await dbPut(upd)}catch(err){setLoading(btn,false);dbErr(err);return}await reload();renderArchive();renderVault();toast('已儲存修改');openDetail(r.id,true)};
@@ -925,12 +943,12 @@ function offerFile(blob,name,title,msg){const d=$('#ask');$('#askT').textContent
  let share=false;try{share=!!(navigator.canShare&&navigator.canShare({files:[file]}))}catch{}
  if(share)mk(ic('upload')+'分享／存到照片','primary',async()=>{try{await navigator.share({files:[file]})}catch(e){if(e.name!=='AbortError')toast('分享失敗：'+e.message,'err')}d.close()});
  d.showModal()}
-async function exportPng(r){await fontsReady();const img=await loadImg(r.cover,r.cover?r.id+':'+r.updatedAt:null);const c=document.createElement('canvas');c.width=1200;c.height=1600;drawCard(c.getContext('2d'),1200,1600,cardMeta(r),{img});c.toBlob(b=>{if(!b){toast('圖片製作失敗','err');return}offerFile(b,fileBase(r)+'.png','卡片圖片做好了','這是靜態圖片，不含聲音；要分享聲音請用影片卡。')},'image/png')}
+async function exportPng(r){await fontsReady();const img=await safeImg(r.cover,r.cover?r.id+':'+r.updatedAt:null);const c=document.createElement('canvas');c.width=1200;c.height=1600;drawCard(c.getContext('2d'),1200,1600,cardMeta(r),{img});c.toBlob(b=>{if(!b){toast('圖片製作失敗','err');return}offerFile(b,fileBase(r)+'.png','卡片圖片做好了','這是靜態圖片，不含聲音；要分享聲音請用影片卡。')},'image/png')}
 function canVideo(){return !!(window.MediaRecorder&&HTMLCanvasElement.prototype.captureStream&&(window.AudioContext||window.webkitAudioContext))}
 async function exportVideo(r,btn){
  setLoading(btn,true,'準備中…');stopAll();let cv=null,vs=null,alive=false,iv=0;
  try{const ctx=AC();if(ctx.resume)await Promise.race([ctx.resume(),sleep(1500)]);
-  await fontsReady();const img=await loadImg(r.cover,r.cover?r.id+':'+r.updatedAt:null);
+  await fontsReady();const img=await safeImg(r.cover,r.cover?r.id+':'+r.updatedAt:null);
   const W=720,H=960;cv=document.createElement('canvas');cv.width=W;cv.height=H;
   cv.style.cssText='position:fixed;left:0;top:0;width:6px;height:8px;opacity:.01;pointer-events:none;z-index:-1';document.body.appendChild(cv);
   const c=cv.getContext('2d');drawCard(c,W,H,cardMeta(r),{img,progress:0});
@@ -988,7 +1006,7 @@ async function doBackup(btn){
  if(!items.length)return;setLoading(btn,true,'打包中…');
  try{const files=[],man={app:'little-sounds-archive',version:1,exportedAt:new Date().toISOString(),counter:nextNo-1,specimens:[]};
   for(const r of items){const a=`audio/${r.id}.wav`,cv=r.cover?`covers/${r.id}.jpg`:null,co=r.coverOrig&&r.coverOrig!==r.cover?`covers/${r.id}-original.jpg`:null;if(co)files.push({name:co,data:new Uint8Array(await r.coverOrig.arrayBuffer())});files.push({name:a,data:new Uint8Array(await r.audio.arrayBuffer())});if(cv)files.push({name:cv,data:new Uint8Array(await r.cover.arrayBuffer())});
-   man.specimens.push({id:r.id,no:r.no,name:r.name,pet:r.pet||'',type:r.type,customType:r.customType||'',palette:r.palette||'lake',coverOrig:co,coverCrop:r.coverCrop||null,date:r.date,story:r.story||'',tags:r.tags||[],duration:r.duration,peaks:r.peaks,fav:!!r.fav,createdAt:r.createdAt,updatedAt:r.updatedAt,audio:a,audioType:r.audioType||r.audio.type||'audio/wav',cover:cv})}
+   man.specimens.push({id:r.id,no:r.no,name:r.name,pet:r.pet||'',type:r.type,customType:r.customType||'',palette:r.palette||'lake',customStops:r.customStops||null,coverOrig:co,coverCrop:r.coverCrop||null,date:r.date,story:r.story||'',tags:r.tags||[],duration:r.duration,peaks:r.peaks,fav:!!r.fav,createdAt:r.createdAt,updatedAt:r.updatedAt,audio:a,audioType:r.audioType||r.audio.type||'audio/wav',cover:cv})}
   files.unshift({name:'manifest.json',data:new TextEncoder().encode(JSON.stringify(man,null,1))});
   const zip=makeZip(files);const d=new Date(),z=n=>String(n).padStart(2,'0');
   download(zip,`little-sounds-backup-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.zip`);
@@ -1008,7 +1026,7 @@ async function doRestore(file){
    const audio=new Blob([files.get(s.audio)],{type:s.audioType||'audio/wav'});let peaks=Array.isArray(s.peaks)&&s.peaks.length?s.peaks.map(Number):null,duration=+s.duration;
    if(!peaks||!duration){try{const b=await decodeBlob(audio);const mo=toMono(b);peaks=calcPeaks(mo,96);duration=b.duration}catch{bad++;continue}}
    const cvB=s.cover&&files.get(s.cover)?new Blob([files.get(s.cover)],{type:'image/jpeg'}):null;
-   recs.push({id:s.id,no:+s.no||0,name:String(s.name).slice(0,40),pet:String(s.pet||'').slice(0,20),type:TMAP[s.type]?s.type:'custom',customType:String(s.customType||'').slice(0,10),palette:PALETTES[s.palette]?s.palette:'lake',coverOrig:s.coverOrig&&files.get(s.coverOrig)?new Blob([files.get(s.coverOrig)],{type:'image/jpeg'}):cvB,coverCrop:s.coverCrop&&typeof s.coverCrop==='object'?{z:+s.coverCrop.z||1,cx:+s.coverCrop.cx||.5,cy:+s.coverCrop.cy||.5}:null,date:s.date||today(),story:String(s.story||'').slice(0,60),tags:Array.isArray(s.tags)?s.tags.filter(t=>typeof t==='string'):[],cover:s.cover&&files.get(s.cover)?new Blob([files.get(s.cover)],{type:'image/jpeg'}):null,audio,audioType:audio.type,duration,peaks,fav:!!s.fav,createdAt:+s.createdAt||Date.now(),updatedAt:+s.updatedAt||Date.now(),backedUp:true})}
+   recs.push({id:s.id,no:+s.no||0,name:String(s.name).slice(0,40),pet:String(s.pet||'').slice(0,20),type:TMAP[s.type]?s.type:'custom',customType:String(s.customType||'').slice(0,10),palette:(PALETTES[s.palette]||s.palette==='custom')?s.palette:'lake',customStops:cleanStops(s.customStops),coverOrig:s.coverOrig&&files.get(s.coverOrig)?new Blob([files.get(s.coverOrig)],{type:'image/jpeg'}):cvB,coverCrop:s.coverCrop&&typeof s.coverCrop==='object'?{z:+s.coverCrop.z||1,cx:+s.coverCrop.cx||.5,cy:+s.coverCrop.cy||.5}:null,date:s.date||today(),story:String(s.story||'').slice(0,60),tags:Array.isArray(s.tags)?s.tags.filter(t=>typeof t==='string'):[],cover:s.cover&&files.get(s.cover)?new Blob([files.get(s.cover)],{type:'image/jpeg'}):null,audio,audioType:audio.type,duration,peaks,fav:!!s.fav,createdAt:+s.createdAt||Date.now(),updatedAt:+s.updatedAt||Date.now(),backedUp:true})}
   if(!recs.length){toast('備份檔裡沒有可以還原的標本','err');return}
   const exist=new Map(items.map(i=>[i.id,i]));const dup=recs.filter(r=>exist.has(r.id));let mode='skip';
   if(dup.length){mode=await ask('有重複的標本',`備份中有 ${dup.length} 件標本已經在收藏櫃裡（共 ${recs.length} 件）。要怎麼處理重複的部分？`,[{v:null,t:'取消還原'},{v:'replace',t:'以備份版本取代'},{v:'skip',t:'保留現有，只加入新的'}]);if(!mode)return}
