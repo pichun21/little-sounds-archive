@@ -880,6 +880,9 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 .mx-set summary{cursor:pointer;font-size:14px;font-weight:600;padding:4px 0}.mx-set .mx-bar{margin:8px 0}.mx-sl{display:inline-flex;align-items:center;gap:6px;font-size:13px}.mx-sl input{width:110px}.mx-sl b{font-size:12px;min-width:46px}
 .mx-exp{gap:10px;flex-wrap:wrap;align-items:center}
 @media(max-width:640px){.mx{padding:14px 14px 22px}.mx-grp button{padding:7px 9px}.mx-sl input{width:90px}}
+.mx-maps{display:flex;flex-wrap:wrap;gap:6px}.mx-maps button{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(47,46,42,.16);background:#FBFAF6;border-radius:999px;padding:5px 10px 5px 6px;font:500 13px "Noto Sans TC",sans-serif;cursor:pointer;color:#2F2E2A}
+.mx-maps button i{width:30px;height:12px;border-radius:6px;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1)}.mx-maps button[aria-pressed=true]{border-color:#2F2E2A;box-shadow:0 0 0 1px #2F2E2A}
+.mx-cust{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center}.mx-cc{display:inline-flex;align-items:center;gap:4px;font-size:12px}.mx-cc input{width:34px;height:28px;border:none;padding:0;background:none;cursor:pointer}
 </style>
 </head>
 <body>
@@ -1925,8 +1928,12 @@ function drawPetStamp(c,cx,cy,R,pet){const k=pet.stamp||'circle',S=Math.ceil(R*2
  c.save();c.globalAlpha=.86;c.globalCompositeOperation='multiply';c.drawImage(o,cx-S/2,cy-S/2);c.restore()}
 
 /* ---------- 聲音顯微鏡 v2：真實 STFT、共用時間座標 ---------- */
-const MX_MAPS={moss:['#0C1A16','#143229','#22584B','#3F8C78','#8CC7A4','#DDEBB0','#F7EFB2'],warm:['#140F0C','#3B2219','#7A3626','#B8613A','#E0A35F','#F7E3BC'],gray:['#0A0A0A','#FFFFFF']};
-const MX_MAPN={moss:'墨綠',warm:'暖棕',gray:'灰階'};
+const MX_MAPS={moss:['#0C1A16','#143229','#22584B','#3F8C78','#8CC7A4','#DDEBB0','#F7EFB2'],warm:['#140F0C','#3B2219','#7A3626','#B8613A','#E0A35F','#F7E3BC'],
+ night:['#080C1C','#13224A','#1F4F86','#3C8FC0','#8FD0E0','#F2FBFF'],berry:['#140A12','#3A1430','#6E2350','#B34A6E','#E79A9A','#FBE6D2'],
+ sunset:['#0B0716','#2A0E3D','#66185A','#A8344E','#E3713A','#F8C55A','#FCF4B6'],tea:['#16110D','#3A2E25','#6B5747','#A08B74','#D3C2A6','#F6EEDD'],gray:['#0A0A0A','#FFFFFF']};
+const MX_MAPN={moss:'墨綠',warm:'暖棕',night:'夜藍',berry:'莓果',sunset:'日落',tea:'奶茶',gray:'灰階',custom:'自訂'};
+const MX_DEFC=['#101418','#5A7FA8','#F6E6A8'];
+function mxStops(map){if(map!=='custom')return MX_MAPS[map]||MX_MAPS.moss;let c=MX_DEFC;try{const v=JSON.parse(localStorage.getItem('lsa-mxc')||'null');if(Array.isArray(v)&&v.length===3&&v.every(x=>/^#[0-9a-f]{6}$/i.test(x)))c=v}catch{}return c}
 function mxLut(stops){const lut=new Uint8ClampedArray(256*3),n=stops.length-1,rgb=stops.map(h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)));for(let i=0;i<256;i++){const t=i/255*n,k=Math.min(n-1,Math.floor(t)),f=t-k;for(let c=0;c<3;c++)lut[i*3+c]=rgb[k][c]+(rgb[k+1][c]-rgb[k][c])*f}return lut}
 function fftMag(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t}}
  for(let len=2;len<=n;len<<=1){const a=-2*Math.PI/len,wr=Math.cos(a),wi=Math.sin(a),h=len>>1;for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let k=0;k<h;k++){const p=i+k,q=p+h,tr=re[q]*cr-im[q]*ci,ti=re[q]*ci+im[q]*cr;re[q]=re[p]-tr;im[q]=im[p]-ti;re[p]+=tr;im[p]+=ti;const t=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=t}}}}
@@ -1981,7 +1988,8 @@ async function openScope(r){stopAll();const sh=$('#detailSheet');
  <div class="mx-win" id="xsWin"><canvas id="xsSpec" aria-label="頻譜圖：點一下跳到該時間，拖曳可以框選片段"></canvas><canvas id="xsWave" aria-label="波形：與頻譜共用時間座標"></canvas><canvas id="xsOv" aria-label="全段總覽：拖曳移動觀察範圍"></canvas><div class="mx-prog" id="xsProg">分析中 0%</div></div>
  <div class="mx-info"><span class="mono" id="xsRange"></span><span class="mono mx-cur" id="xsCur">移到頻譜上可以看時間、頻率與音量</span></div>
  <details class="mx-set"><summary>顯示設定</summary><div class="mx-bar">
-  <span class="mx-lbl">色階</span><span class="mx-grp" role="group" aria-label="色階">${Object.keys(MX_MAPS).map(k=>`<button data-map="${k}" aria-pressed="${k==='moss'}">${MX_MAPN[k]}</button>`).join('')}</span>
+  <span class="mx-lbl">色階</span><span class="mx-maps" role="group" aria-label="色階">${[...Object.keys(MX_MAPS),'custom'].map(k=>`<button data-map="${k}" aria-pressed="false" title="${MX_MAPN[k]}"><i style="background:linear-gradient(90deg,${mxStops(k).join(',')})"></i>${MX_MAPN[k]}</button>`).join('')}</span>
+  <span class="mx-cust" id="xsCust" hidden><span class="mx-lbl">自訂</span>${['最安靜','中間','最響亮'].map((t,i)=>`<label class="mx-cc"><input type="color" data-cc="${i}" value="${mxStops('custom')[i]}" aria-label="${t}的顏色">${t}</label>`).join('')}</span>
   <label class="mx-sl">動態範圍 <input type="range" id="xsRangeIn" min="30" max="100" step="5" value="60"><b id="xsRangeV" class="mono">60 dB</b></label>
   <label class="mx-sl">亮度 <input type="range" id="xsTopIn" min="-30" max="15" step="1" value="0"><b id="xsTopV" class="mono">±0</b></label>
   <label class="mx-sl">對比 <input type="range" id="xsGamIn" min="0.5" max="2" step="0.05" value="1"><b id="xsGamV" class="mono">1.00</b></label>
@@ -1993,7 +2001,8 @@ async function openScope(r){stopAll();const sh=$('#detailSheet');
  const A=await mxAnalyze(buf,p=>{const el=$('#xsProg');if(el)el.textContent=`分析中 ${Math.round(p*100)}%`});if(!$('#xsSpec'))return;$('#xsProg').remove();
  if(XS.audio)XS.audio.pause();const au=new Audio(URL.createObjectURL(r.audio));XS.audio=au;
  const fTop=A.fTop,BANDS={full:[0,fTop],low:[0,Math.min(1000,fTop)],mid:[1000,Math.min(4000,fTop)],high:[Math.min(4000,fTop*.5),fTop]},BN={full:'全頻',low:'低頻',mid:'中頻',high:'高頻'};
- const V={t0:0,t1:A.dur,band:'full',fr:BANDS.full,map:'moss',range:60,topOff:0,top:A.autoTop,gamma:1,sel:null,loop:false,rate:1,keep:true,z:1};let lut=mxLut(MX_MAPS.moss);
+ let map0='moss';try{const m=localStorage.getItem('lsa-mxmap');if(m&&(MX_MAPS[m]||m==='custom'))map0=m}catch{}
+ const V={prev:null,t0:0,t1:A.dur,band:'full',fr:BANDS.full,map:map0,range:60,topOff:0,top:A.autoTop,gamma:1,sel:null,loop:false,rate:1,keep:true,z:1};let lut=mxLut(mxStops(V.map));
  const spec=$('#xsSpec'),wave=$('#xsWave'),ov=$('#xsOv'),mob=matchMedia('(max-width:640px)').matches,GL=mob?38:50,GR=10;
  let dpr=1,sC,wC,oC,specCache=null,waveCache=null,ovCache=null,W=0,SH=0,WH=0,OH=0;
  const plotW=()=>W-GL-GR,tx=t=>GL+(t-V.t0)/(V.t1-V.t0)*plotW(),xt=x=>V.t0+(x-GL)/plotW()*(V.t1-V.t0);
@@ -2018,11 +2027,11 @@ async function openScope(r){stopAll();const sh=$('#detailSheet');
   oC.strokeStyle='#2F2E2A';oC.lineWidth=1.5;oC.strokeRect(GL+V.t0*k,1.5,Math.max(3,(V.t1-V.t0)*k),OH-3);if(V.sel){oC.fillStyle='rgba(199,136,109,.35)';oC.fillRect(GL+V.sel[0]*k,2,Math.max(1,(V.sel[1]-V.sel[0])*k),OH-4)}oC.fillStyle='#C7886D';oC.fillRect(GL+t*k-1,0,2,OH);
   $('#xsTime').textContent=`${fmt(t,2)} / ${fmt(A.dur,2)}`;const p=!au.paused,b=$('#xsPlay');if(b){b.innerHTML=ic(p?'pause':'play');b.setAttribute('aria-label',p?'暫停':'播放')}};
  const info=()=>{const[f0,f1]=V.fr;$('#xsRange').textContent=`觀察 ${V.t0.toFixed(2)}–${V.t1.toFixed(2)} 秒 · ${BN[V.band]} ${Math.round(f0).toLocaleString()}–${Math.round(f1).toLocaleString()} Hz · ${V.range} dB${V.sel?` · 選取 ${V.sel[0].toFixed(2)}–${V.sel[1].toFixed(2)} 秒`:''}`;
-  $('#xsZsel').disabled=!V.sel;$('#xsClr').disabled=!V.sel;$('#xsLoop').disabled=false;
+  $('#xsZsel').disabled=!V.sel;$('#xsClr').disabled=!V.sel&&!V.prev;$('#xsClr').textContent=V.prev?'清除選取並回到原本範圍':'清除選取';$('#xsLoop').disabled=false;
   const bd=$('#xsBadge');bd.hidden=V.rate===1;bd.textContent=`變速中 ${V.rate}× · ${V.keep?'保持音高':'音高跟著變'}`;
   $$('[data-z]',sh).forEach(b=>b.setAttribute('aria-pressed',+b.dataset.z===V.z));$('#xsSlow').disabled=V.rate===1};
  const setView=(a,b)=>{const span=Math.max(.05,Math.min(A.dur,b-a));a=Math.max(0,Math.min(A.dur-span,a));V.t0=a;V.t1=a+span;build()};
- const zoom=z=>{V.z=z;const span=A.dur/z,c=V.sel?(V.sel[0]+V.sel[1])/2:(au.currentTime||0);setView(c-span/2,c+span/2)};
+ const zoom=z=>{V.z=z;V.prev=null;const span=A.dur/z,c=V.sel?(V.sel[0]+V.sel[1])/2:(au.currentTime||0);setView(c-span/2,c+span/2)};
  const seek=t=>{au.currentTime=Math.max(0,Math.min(A.dur-.005,t));paint()};
  const loop=()=>{const t=au.currentTime;if(V.loop&&V.sel&&(t>=V.sel[1]||t<V.sel[0]-.05))au.currentTime=V.sel[0];
   else if(!V.loop&&V.z>1&&(t>V.t1||t<V.t0)){const span=V.t1-V.t0;setView(t-span*.1,t+span*.9);return XS.raf=requestAnimationFrame(loop)}
@@ -2036,11 +2045,14 @@ async function openScope(r){stopAll();const sh=$('#detailSheet');
  $('#xsKeep').onchange=e=>{V.keep=e.target.checked;applyRate()};
  $$('[data-z]',sh).forEach(b=>b.onclick=()=>zoom(+b.dataset.z));
  $$('[data-band]',sh).forEach(b=>b.onclick=()=>{V.band=b.dataset.band;V.fr=BANDS[V.band];$$('[data-band]',sh).forEach(x=>x.setAttribute('aria-pressed',x===b));build()});
- $$('[data-map]',sh).forEach(b=>b.onclick=()=>{V.map=b.dataset.map;lut=mxLut(MX_MAPS[V.map]);$$('[data-map]',sh).forEach(x=>x.setAttribute('aria-pressed',x===b));build()});
+ const syncMap=()=>{$$('[data-map]',sh).forEach(x=>x.setAttribute('aria-pressed',x.dataset.map===V.map));$('#xsCust').hidden=V.map!=='custom';lut=mxLut(mxStops(V.map))};syncMap();
+ $$('[data-map]',sh).forEach(b=>b.onclick=()=>{V.map=b.dataset.map;try{localStorage.setItem('lsa-mxmap',V.map)}catch{}syncMap();build()});
+ $$('[data-cc]',sh).forEach(inp=>inp.oninput=()=>{const c=$$('[data-cc]',sh).map(x=>x.value);try{localStorage.setItem('lsa-mxc',JSON.stringify(c))}catch{}const sw=$('[data-map=custom] i',sh);if(sw)sw.style.background=`linear-gradient(90deg,${c.join(',')})`;lut=mxLut(c);build()});
  const sl=(id,k,fmtv)=>{const i=$('#'+id);i.oninput=()=>{V[k]=+i.value;$('#'+id.replace('In','V')).textContent=fmtv(V[k]);build()}};
  sl('xsRangeIn','range',v=>v+' dB');sl('xsTopIn','topOff',v=>(v>0?'+':v<0?'':'±')+v);sl('xsGamIn','gamma',v=>v.toFixed(2));
  $('#xsReset').onclick=()=>{Object.assign(V,{range:60,topOff:0,gamma:1});$('#xsRangeIn').value=60;$('#xsTopIn').value=0;$('#xsGamIn').value=1;$('#xsRangeV').textContent='60 dB';$('#xsTopV').textContent='±0';$('#xsGamV').textContent='1.00';build()};
- $('#xsZsel').onclick=()=>{if(V.sel){V.z=0;setView(V.sel[0],V.sel[1])}};$('#xsClr').onclick=()=>{V.sel=null;V.loop=false;$('#xsLoop').setAttribute('aria-pressed','false');paint();info()};
+ $('#xsZsel').onclick=()=>{if(V.sel){if(!V.prev)V.prev={t0:V.t0,t1:V.t1,z:V.z};V.z=0;setView(V.sel[0],V.sel[1])}};
+ const clearSel=()=>{V.sel=null;V.loop=false;$('#xsLoop').setAttribute('aria-pressed','false');if(V.prev){const p=V.prev;V.prev=null;V.z=p.z;setView(p.t0,p.t1)}else{paint();info()}};$('#xsClr').onclick=clearSel;
  // pointer: tap = seek, horizontal drag = select. Same mapping for spectrum and waveform.
  for(const cv of[spec,wave]){let d=null;
   cv.addEventListener('pointerdown',e=>{const rc=cv.getBoundingClientRect(),x=e.clientX-rc.left;if(x<GL-4)return;d={x0:x,y0:e.clientY,t0:xt(x),drag:false,id:e.pointerId}});
@@ -2048,7 +2060,7 @@ async function openScope(r){stopAll();const sh=$('#detailSheet');
    if(cv===spec&&x>=GL&&x<=W-GR){const t=xt(x),f=V.fr[1]-y/(SH-4)*(V.fr[1]-V.fr[0]),fi=Math.max(0,Math.min(A.frames-1,Math.round((t*A.sr-A.N/2)/A.hop))),bi=Math.max(0,Math.min(A.bins-1,Math.round(f/A.binHz))),db=A.S[fi*A.bins+bi]/255*120-120;$('#xsCur').textContent=`${t.toFixed(3)} 秒 · ${Math.round(Math.max(0,f)).toLocaleString()} Hz · ${db<=-119?'無聲':db.toFixed(0)+' dB'}`}
    if(!d)return;if(!d.drag&&Math.abs(x-d.x0)>6&&Math.abs(x-d.x0)>Math.abs(e.clientY-d.y0)){d.drag=true;try{cv.setPointerCapture(d.id)}catch{}}
    if(d.drag){e.preventDefault();const t=Math.max(0,Math.min(A.dur,xt(x)));V.sel=[Math.min(d.t0,t),Math.max(d.t0,t)];paint();info()}});
-  const up=e=>{if(!d)return;const rc=cv.getBoundingClientRect(),x=e.clientX-rc.left;if(!d.drag){const t=xt(x);if(V.sel&&(t<V.sel[0]||t>V.sel[1])&&!V.loop){V.sel=null;info()}seek(t)}else if(V.sel&&V.sel[1]-V.sel[0]<.02){V.sel=null;info()}else{seek(V.sel[0])}d=null};
+  const up=e=>{if(!d)return;const rc=cv.getBoundingClientRect(),x=e.clientX-rc.left;if(!d.drag){const t=xt(x);if(V.sel&&(t<V.sel[0]||t>V.sel[1])&&!V.loop&&!V.prev){V.sel=null;info()}seek(t)}else if(V.sel&&V.sel[1]-V.sel[0]<.02){V.sel=null;info()}else{seek(V.sel[0])}d=null};
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',()=>d=null)}
  {let drag=null;ov.addEventListener('pointerdown',e=>{const rc=ov.getBoundingClientRect(),t=(e.clientX-rc.left-GL)/plotW()*A.dur;ov.setPointerCapture(e.pointerId);const span=V.t1-V.t0;drag={off:t>=V.t0&&t<=V.t1?t-V.t0:span/2};setView(t-drag.off,t-drag.off+span)});
   ov.addEventListener('pointermove',e=>{if(!drag)return;const rc=ov.getBoundingClientRect(),t=(e.clientX-rc.left-GL)/plotW()*A.dur,span=V.t1-V.t0;setView(t-drag.off,t-drag.off+span)});ov.addEventListener('pointerup',()=>drag=null)}
