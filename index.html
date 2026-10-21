@@ -892,6 +892,43 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 .vdest{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:14px 0 4px}.vdest .mono{font-size:11px;color:#74736E;margin-right:4px}.vdest span:not(.mono){font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid rgba(47,46,42,.14);background:#FBFAF6}
 .vmini{margin-top:14px}.vmini>div{padding:9px 0!important;font-size:14px}
 .vs-coll{border-style:dashed!important}.viewsw{flex-wrap:wrap!important;max-width:100%}
+.cl-name{display:grid;gap:4px;font-size:13px;margin-top:4px}.cl-name input{font:inherit;font-size:15px;padding:8px 10px;border:1px solid rgba(47,46,42,.18);border-radius:8px;background:#FBFAF6}
+
+.exhibit{border:none;padding:0;margin:0;width:100vw;height:100dvh;max-width:none;max-height:none;background:#1C1916;color:#EFE6D3;overflow:hidden}
+.exhibit::backdrop{background:#000}
+.exhibit[open]{display:flex;flex-direction:column;background:radial-gradient(ellipse 120% 70% at 50% 18%,#3A322A 0%,#26211C 55%,#1C1916 100%);animation:exIn .7s ease both}@keyframes exIn{from{opacity:0}to{opacity:1}}
+.ex-top{display:flex;justify-content:space-between;align-items:center;padding:16px 22px;position:relative;z-index:3}.ex-top .mono{font-size:11px;letter-spacing:.18em;color:#9C8F78}@media(max-width:560px){.ex-top .mono{font-size:9.5px;letter-spacing:.1em}}
+.ex-x{background:none;border:1px solid rgba(239,230,211,.25);color:#EFE6D3;width:40px;height:40px;border-radius:50%;cursor:pointer;display:grid;place-items:center}.ex-x .ic{width:18px;height:18px}
+.ex-hall{flex:1;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;outline:none;background:none}
+.ex-hall::-webkit-scrollbar{display:none}
+.ex-room{flex:0 0 100%;scroll-snap-align:center;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 24px 20px;text-align:center}
+.ex-room::after{content:"";position:absolute;left:0;right:0;bottom:0;height:22%;background:linear-gradient(transparent,rgba(0,0,0,.35));pointer-events:none}
+.ex-intro h2,.ex-outro h2{font:900 clamp(40px,8vw,86px)/1.1 "Noto Serif TC",serif;margin:10px 0 0;color:#F4EBD8;letter-spacing:.04em}
+.ex-year{font:italic 400 clamp(54px,11vw,120px)/1 "EB Garamond",Georgia,serif;color:#C7886D;margin:4px 0 18px}
+.ex-sub{color:#BFB29A;font-size:clamp(15px,2vw,18px);line-height:1.9;margin:0 0 26px}.ex-sub .mono{font-size:12px;letter-spacing:.1em;color:#8E826C}
+.ex-room>.mono{font-size:11px;letter-spacing:.24em;color:#9C8F78;margin:0}
+.ex-cta{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.ex-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(239,230,211,.35);background:none;color:#EFE6D3;font:600 15px "Noto Sans TC",sans-serif;padding:12px 22px;border-radius:999px;cursor:pointer;transition:background .2s}
+.ex-btn:hover{background:rgba(239,230,211,.08)}.ex-btn.pri{background:#C7886D;border-color:#C7886D;color:#1C1916}.ex-btn.pri:hover{background:#D59A80}.ex-btn .ic{width:18px;height:18px}
+.ex-tip{margin-top:22px!important;font-size:11px;letter-spacing:.12em;color:#7D7262}
+.ex-light{position:absolute;top:-6%;left:50%;width:min(80vw,640px);height:92%;transform:translateX(-50%);background:radial-gradient(ellipse 50% 60% at 50% 0%,rgba(255,236,196,.26),rgba(255,236,196,.08) 45%,transparent 72%);opacity:0;transition:opacity 1.1s ease;pointer-events:none}
+.ex-room.on .ex-light{opacity:1}
+.ex-frame{position:relative;padding:clamp(14px,2.2vw,22px);background:linear-gradient(145deg,#6B5233,#3E2F1D);border-radius:4px;box-shadow:0 30px 60px rgba(0,0,0,.55),inset 0 0 0 3px #B48A3C,inset 0 0 0 7px #4A3824;transform:scale(.92);opacity:.45;transition:transform 1s cubic-bezier(.2,.8,.2,1),opacity 1s}
+.ex-room.on .ex-frame{transform:scale(1);opacity:1}
+.ex-art{position:relative;display:block;border:none;padding:clamp(12px,2vw,20px);background:#EFE7D6;cursor:pointer;box-shadow:inset 0 0 18px rgba(80,60,30,.2)}
+.ex-art canvas{display:block;width:min(36vh,58vw);height:auto}
+.ex-play{position:absolute;right:12px;bottom:12px;width:44px;height:44px;border-radius:50%;background:rgba(28,25,22,.78);color:#F4EBD8;display:grid;place-items:center;transition:transform .2s}.ex-play .ic{width:20px;height:20px}
+.ex-art:hover .ex-play{transform:scale(1.08)}
+.ex-work.playing .ex-frame{box-shadow:0 30px 70px rgba(0,0,0,.6),0 0 60px rgba(255,220,160,.18),inset 0 0 0 3px #D9B266,inset 0 0 0 7px #4A3824}
+.ex-label{margin-top:clamp(18px,3vh,30px);max-width:420px;opacity:0;transform:translateY(10px);transition:opacity .9s .25s,transform .9s .25s}
+.ex-room.on .ex-label{opacity:1;transform:none}
+.ex-label .mono{font-size:11px;letter-spacing:.14em;color:#9C8F78;margin:0}.ex-label h3{font:700 clamp(22px,3vw,28px) "Noto Serif TC",serif;margin:6px 0 6px;color:#F4EBD8}
+.ex-story{margin:0;color:#BFB29A;font-size:14px;line-height:1.8}
+.ex-bar{height:2px;background:rgba(239,230,211,.15);margin:14px auto 0;width:160px;border-radius:2px;overflow:hidden}.ex-bar i{display:block;height:100%;width:0;background:#C7886D}
+.ex-foot{display:flex;align-items:center;justify-content:center;gap:16px;padding:12px 16px calc(14px + env(safe-area-inset-bottom))}
+.ex-nav{width:44px;height:44px;border-radius:50%;border:1px solid rgba(239,230,211,.25);background:none;color:#EFE6D3;cursor:pointer;display:grid;place-items:center}.ex-nav:disabled{opacity:.25;cursor:default}.ex-nav .ic{width:18px;height:18px}
+.ex-dots{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;max-width:60vw}.ex-dots i{width:7px;height:7px;border-radius:50%;background:rgba(239,230,211,.22);cursor:pointer;transition:all .3s}.ex-dots i.on{background:#C7886D;width:22px;border-radius:4px}
+@media (prefers-reduced-motion:reduce){.ex-frame,.ex-label,.ex-light{transition:none}}
 </style>
 </head>
 <body>
@@ -1048,6 +1085,7 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 <footer><div class="wrap foot"><span class="foot-brand">毛孩聲音收藏館</span><span>所有聲音只存在你的裝置中，不會上傳到任何地方。</span><p class="foot-copy">© <span id="cpY"></span> need to deco. All rights reserved.</p></div></footer>
 
 <dialog id="tour" class="tour" aria-label="使用導覽"></dialog>
+<dialog id="exhibit" class="exhibit" aria-label="聲音特展"></dialog>
 <dialog id="detail" aria-labelledby="dTitle"><div class="sheet" id="detailSheet"></div></dialog>
 <dialog id="ask" class="ask" aria-labelledby="askT"><div class="sheet"><h3 id="askT"></h3><p id="askM"></p><div class="vbtns" id="askB"></div></div></dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -1649,8 +1687,8 @@ function renderRings(body,list){
  cv.addEventListener('pointerdown',e=>{const rc=cv.getBoundingClientRect(),W=rc.width,x=e.clientX-rc.left-W/2,y=e.clientY-rc.top-W/2,d=Math.hypot(x,y),{R0}=ringGeom(W,ringsOf(g0).length);if(d<R0*.82){centre();return}const h=ringHit(g0,W,x,y);if(h)play(h.r)});
  cv.addEventListener('pointermove',e=>{const rc=cv.getBoundingClientRect(),W=rc.width,x=e.clientX-rc.left-W/2,y=e.clientY-rc.top-W/2,d=Math.hypot(x,y);const inC=d<ringGeom(W,ringsOf(g0).length).R0*.82,h=inC?null:ringHit(g0,W,x,y);cv.style.cursor=inC||h?'pointer':'default';const t=$('#rgTip');if(t&&PL.audio.paused)t.textContent=inC?(g0.pet?`點一下更換${g0.pet.name}的照片`:'點一下指定這些錄音是哪一位毛孩'):h?`${h.year?h.year+' 年':`第 ${h.k+1} 圈`}：${h.r.name}（${(h.r.date||'').replaceAll('-','.')}）`:'點任一圈，就會播放那一段聲音'});
  body.onclick=e=>{const b=e.target.closest('[data-rp]');if(b){const r=items.find(x=>x.id===b.dataset.rp);if(r)play(r);return}const p=e.target.closest('[data-rg]');if(p){RG.pet=p.dataset.rg;RG.id=null;stopAll();renderArchive()}};
- $('#rgPng').onclick=async()=>{await fontsReady();const W=1600,c=document.createElement('canvas');c.width=c.height=W;const x=c.getContext('2d');x.fillStyle='#F5F3EE';x.fillRect(0,0,W,W);x.save();x.translate(W*.06,W*.04);x.scale(.88,.88);drawRings(x,W,g0,{photo:photo.im,keep:true});x.restore();
-  x.fillStyle='#302F2B';x.textAlign='center';x.font=`700 ${W*.032}px "Noto Serif TC",serif`;x.fillText(g0.pet?`${g0.pet.name}的聲音年輪`:'聲音年輪',W/2,W*.955);x.fillStyle='#74736E';x.font=`500 ${W*.014}px "IBM Plex Mono",monospace`;const a=g0.list[0],z=g0.list[g0.list.length-1];x.fillText(`${g0.list.length} RINGS · ${(a.date||'').replaceAll('-','.')} — ${(z.date||'').replaceAll('-','.')} · PET SOUND ARCHIVE`,W/2,W*.98);
+ $('#rgPng').onclick=async()=>{await fontsReady();const W=1600,c=document.createElement('canvas');c.width=c.height=W;const x=c.getContext('2d');paperTex(x,W,W,'#F3EEE2','ring'+(g0.key||''));x.save();x.translate(W*.06,W*.04);x.scale(.88,.88);drawRings(x,W,g0,{photo:photo.im,keep:true});x.restore();
+  x.fillStyle='#302F2B';x.textAlign='center';x.font=`700 ${W*.032}px "Noto Serif TC",serif`;x.fillText(`${g0.pet?g0.pet.name+'的':''}聲音年輪${yearSpan(g0.list)?' · '+yearSpan(g0.list):''}`,W/2,W*.955);x.fillStyle='#74736E';x.font=`500 ${W*.014}px "IBM Plex Mono",monospace`;const a=g0.list[0],z=g0.list[g0.list.length-1];x.fillText(`${g0.list.length} RINGS · ${(a.date||'').replaceAll('-','.')} — ${(z.date||'').replaceAll('-','.')} · PET SOUND ARCHIVE`,W/2,W*.98);
   if(LOGO.complete&&LOGO.naturalWidth){const lh=W*.022,lw=lh*LOGO.naturalWidth/LOGO.naturalHeight;x.globalAlpha=.75;x.drawImage(LOGO,W-lw-W*.035,W*.035,lw,lh);x.globalAlpha=1}
   if(g0.pet&&g0.pet.stamp)drawPetStamp(x,W*.1,W*.1,W*.055,g0.pet);
   x.textAlign='left';x.fillStyle='#74736E';x.font=`500 ${W*.012}px "IBM Plex Mono",monospace`;x.fillText('NO.'+String(g0.list.length).padStart(3,'0')+' SOUNDS',W*.035,W*.2);
@@ -1666,7 +1704,7 @@ function renderTimeline(body,list){
  const groups=[];sorted.forEach(r=>{const y=(r.date||'').slice(0,4)||'未知';let g=groups[groups.length-1];if(!g||g.y!==y){g={y,items:[]};groups.push(g)}g.items.push(r)});
  if(TL.key!==petFilter&&groups.length){TL.key=petFilter;TL.open=new Set([groups[groups.length-1].y])}
  const span=sorted.length>1?`${(sorted[0].date||'').replaceAll('-','.')} — ${(sorted[sorted.length-1].date||'').replaceAll('-','.')}`:'';
- body.innerHTML=`<div class="tl-head"><p class="tl-title">${one?`${esc(one.name)}的聲音時光軸`:'聲音時光軸'}</p><p class="mono tl-span">${sorted.length} 段聲音${span?` · ${span}`:''}</p><button class="btn ghost sm" id="tlAll">${ic('play')}依序播放</button></div>
+ body.innerHTML=`<div class="tl-head"><p class="tl-title">${one?`${esc(one.name)}的聲音時光軸`:'聲音時光軸'}</p><p class="mono tl-span">${sorted.length} 段聲音${span?` · ${span}`:''}</p><button class="btn ghost sm" id="tlAll">${ic('play')}依序播放</button><button class="btn ghost sm" id="tlEx">${ic('star')}年度聲音特展</button></div>
  ${groups.length>1?`<div class="tl-tools"><button class="btn text sm" id="tlOpenAll">${groups.every(g=>TL.open.has(g.y))?'全部收合':'全部展開'}</button></div>`:''}
  <ol class="tl">${groups.map((g,gi)=>{const op=TL.open.has(g.y);return `<li class="tl-year${op?'':' shut'}"><button class="tl-y" data-yr="${g.y}" aria-expanded="${op}">${g.y}<small>${g.items.length} 段 ${op?'▾':'▸'}</small></button><ol ${op?'':'hidden'}>${g.items.map(r=>{const p=petById(r.petId),age=p&&ageAt(p.birthday,r.date);
   return `<li class="tl-item" data-id="${r.id}"><span class="tl-dot" aria-hidden="true"></span><p class="tl-date mono">${(r.date||'').slice(5).replace('-','.')}${age?`<span>${esc(p.name)} ${age}</span>`:(petNameOf(r)&&!one?`<span>${esc(petNameOf(r))}</span>`:'')}</p>
@@ -1681,6 +1719,8 @@ function renderTimeline(body,list){
  const oa=$('#tlOpenAll');if(oa)oa.onclick=()=>{const all=groups.every(g=>TL.open.has(g.y));TL.open=new Set(all?[]:groups.map(g=>g.y));renderArchive()};
  body.onclick=async e=>{const yb=e.target.closest('[data-yr]');if(yb){const y=yb.dataset.yr;TL.open.has(y)?TL.open.delete(y):TL.open.add(y);renderArchive();return}const o=e.target.closest('[data-open]');if(o){openDetail(o.dataset.open);return}const b=e.target.closest('[data-play]');if(!b)return;const r=items.find(x=>x.id===b.dataset.play);if(!r)return;
   if(TL.id===r.id&&!PL.audio.paused){PL.audio.pause();TL.seq=false;setBtns();return}TL.seq=false;playOne(r)};
+ $('#tlEx').onclick=async()=>{const ys=[...new Set(sorted.map(r=>(r.date||'').slice(0,4)).filter(Boolean))].reverse();const pid=one?one.id:(ringGroups(sorted)[0]||{}).key||'';const who=(petById(pid)||{}).name||'毛孩';
+  const y=ys.length===1?ys[0]:await ask('要做哪一年的特展？',`會把${who}那一年的收藏排成一張海報。`,[{v:null,t:'取消'},...ys.slice(0,4).map(v=>({v,t:v+' 年',cls:'ghost'}))]);if(y)openExhibit(pid,y)};
  $('#tlAll').onclick=async()=>{TL.seq=true;for(const r of sorted){if(!TL.seq)break;const ok=await playOne(r);if(!ok||!TL.seq)break;await new Promise(z=>setTimeout(z,500))}TL.seq=false;setBtns()};
 }
 function openDrawer(btn){drawerSound();const id=btn.dataset.id;if(reduced()){openDetail(id);return}btn.classList.add('pulling');setTimeout(()=>{btn.classList.remove('pulling');openDetail(id)},420)}
@@ -1751,7 +1791,90 @@ function offerFile(blob,name,title,msg){const d=$('#ask');$('#askT').textContent
  let share=false;try{share=!!(navigator.canShare&&navigator.canShare({files:[file]}))}catch{}
  if(share)mk(ic('upload')+'分享／存到照片','primary',async()=>{try{await navigator.share({files:[file]})}catch(e){if(e.name!=='AbortError')toast('分享失敗：'+e.message,'err')}d.close()});
  d.showModal()}
-async function exportCartPng(r){await fontsReady();const img=r.cover&&coverStyleOf(r)==='photo'?await safeImg(r.cover,r.id+':'+r.updatedAt):null;const c=document.createElement('canvas');c.width=1200;c.height=1360;drawCartridge(c.getContext('2d'),1200,1360,r,{img});c.toBlob(b=>{if(!b){toast('圖片製作失敗','err');return}offerFile(b,fileBase(r)+'_cartridge.png','卡匣圖片做好了','透明背景的 PNG，可以直接放進簡報或社群貼文。')},'image/png')}
+/* ---------- 紙張紋理、館藏標籤框、展覽式命名 ---------- */
+function paperTex(c,W,H,base='#F3EEE2',seed='paper'){const r=seedRnd(seed);c.fillStyle=base;c.fillRect(0,0,W,H);
+ const g=c.createRadialGradient(W/2,H*.45,Math.min(W,H)*.2,W/2,H/2,Math.max(W,H)*.75);g.addColorStop(0,'rgba(255,255,255,.35)');g.addColorStop(1,'rgba(120,95,60,.12)');c.fillStyle=g;c.fillRect(0,0,W,H);
+ const n=Math.round(W*H/60);for(let i=0;i<n;i++){const x=r()*W,y=r()*H,a=r()*.07;c.fillStyle=r()<.5?`rgba(90,70,45,${a})`:`rgba(255,255,255,${a*1.4})`;c.fillRect(x,y,1+r()*1.6,1+r()*1.6)}
+ c.lineCap='round';for(let i=0;i<Math.round(W*H/9000);i++){const x=r()*W,y=r()*H,l=6+r()*22,t=r()*Math.PI;c.strokeStyle=`rgba(110,85,55,${.04+r()*.06})`;c.lineWidth=.6+r()*.7;c.beginPath();c.moveTo(x,y);c.quadraticCurveTo(x+Math.cos(t)*l*.5+r()*4,y+Math.sin(t)*l*.5+r()*4,x+Math.cos(t)*l,y+Math.sin(t)*l);c.stroke()}}
+function yearSpan(list){const ys=list.map(r=>(r.date||'').slice(0,4)).filter(Boolean).sort();if(!ys.length)return'';return ys[0]===ys[ys.length-1]?ys[0]:`${ys[0]}–${ys[ys.length-1]}`}
+function seasonOf(d){const m=+(d||'').slice(5,7);return m>=3&&m<=5?'春天':m>=6&&m<=8?'夏天':m>=9&&m<=11?'秋天':'冬天'}
+function seasonKey(d){const y=+(d||'').slice(0,4),m=+(d||'').slice(5,7);return (m<=2?y-1:y)+'-'+seasonOf(d)}
+function collageTitle(list){const pid=list.map(r=>r.petId).find(Boolean),allSame=list.every(r=>r.petId===pid),pet=allSame&&pid?petById(pid):null,who=pet?pet.name:'毛孩';
+ const keys=[...new Set(list.map(r=>seasonKey(r.date)))];
+ if(keys.length===1){const se=seasonOf(list[0].date),[y]=keys[0].split('-');
+  if(pet){const all=items.filter(r=>r.petId===pet.id).map(r=>seasonKey(r.date)).filter(k=>k.endsWith(se)).sort();const idx=[...new Set(all)].indexOf(keys[0]);const ord=['第一個','第二個','第三個','第四個','第五個'][idx];if(ord)return `${who}的${ord}${se}`}
+  return `${who}的${y} ${se}`}
+ const ys=yearSpan(list);return ys&&!ys.includes('–')?`${who}的 ${ys} 聲音合輯`:`${who}的聲音合輯${ys?' '+ys:''}`}
+async function exportCartPng(r){await fontsReady();const img=r.cover&&coverStyleOf(r)==='photo'?await safeImg(r.cover,r.id+':'+r.updatedAt):null;
+ const W=1400,H=1800,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');paperTex(x,W,H,'#F3EEE2',r.id);
+ const m=46,ink='#3E3326',gold='#B48A3C';
+ x.fillStyle=ink;x.fillRect(0,0,W,m);x.fillRect(0,H-m,W,m);x.fillRect(0,0,m,H);x.fillRect(W-m,0,m,H);
+ x.strokeStyle=gold;x.lineWidth=4;x.strokeRect(m+10,m+10,W-2*m-20,H-2*m-20);x.lineWidth=1.5;x.strokeRect(m+22,m+22,W-2*m-44,H-2*m-44);
+ const br=(cx,cy,sx,sy)=>{x.strokeStyle=gold;x.lineWidth=5;x.beginPath();x.moveTo(cx+sx*70,cy);x.lineTo(cx,cy);x.lineTo(cx,cy+sy*70);x.stroke();x.fillStyle=gold;x.beginPath();x.arc(cx+sx*18,cy+sy*18,6,0,7);x.fill()};
+ br(m+36,m+36,1,1);br(W-m-36,m+36,-1,1);br(m+36,H-m-36,1,-1);br(W-m-36,H-m-36,-1,-1);
+ const pw=640,ph=64,px=(W-pw)/2,py=m+52;x.fillStyle=ink;rrect(x,px,py,pw,ph,6);x.fill();x.strokeStyle=gold;x.lineWidth=2;rrect(x,px+6,py+6,pw-12,ph-12,4);x.stroke();
+ x.fillStyle='#F0E4C8';x.textAlign='center';x.textBaseline='middle';x.font='600 22px "IBM Plex Mono",monospace';x.fillText('PET SOUND ARCHIVE  ·  館藏 NO.'+String(r.no||0).padStart(3,'0'),W/2,py+ph/2+1);x.textBaseline='alphabetic';
+ for(const sx of [px-26,px+pw+26]){x.fillStyle=gold;x.beginPath();x.arc(sx,py+ph/2,7,0,7);x.fill();x.fillStyle=ink;x.beginPath();x.arc(sx,py+ph/2,2.5,0,7);x.fill()}
+ const cw=1040,ch=cw*680/600,cc=document.createElement('canvas');cc.width=cw;cc.height=ch;drawCartridge(cc.getContext('2d'),cw,ch,r,{img});
+ const cy0=m+170;x.save();x.shadowColor='rgba(60,45,25,.28)';x.shadowBlur=50;x.shadowOffsetY=26;x.drawImage(cc,(W-cw)/2,cy0);x.restore();
+ const ty=cy0+ch+90;x.strokeStyle='rgba(62,51,38,.45)';x.setLineDash([10,9]);x.lineWidth=2;x.beginPath();x.moveTo(m+60,ty-62);x.lineTo(W-m-60,ty-62);x.stroke();x.setLineDash([]);
+ x.fillStyle='#F3EEE2';for(const sx of [m+22,W-m-22]){x.beginPath();x.arc(sx,ty-62,20,0,7);x.fill()}x.fillStyle='#302F2B';x.font='700 54px "Noto Serif TC",serif';x.fillText(r.name||'未命名的聲音',W/2,ty);
+ const pn=petNameOf(r),pt=r.petId&&petById(r.petId),age=pt&&ageAt(pt.birthday,r.date);x.fillStyle='#74736E';x.font='400 26px "Noto Sans TC",sans-serif';
+ x.fillText([pn&&(pn+(age?'・'+age:'')),(r.date||'').replaceAll('-','.'),typeName(r),fmt(r.duration)].filter(Boolean).join('　·　'),W/2,ty+52);
+
+ if(LOGO.complete&&LOGO.naturalWidth){const lh=30,lw=lh*LOGO.naturalWidth/LOGO.naturalHeight;x.globalAlpha=.7;x.drawImage(LOGO,(W-lw)/2,H-m-88,lw,lh);x.globalAlpha=1}
+ c.toBlob(b=>{if(!b){toast('圖片製作失敗','err');return}offerFile(b,fileBase(r)+'_館藏卡.png','館藏卡做好了','1400×1800 的直式圖片，附館藏標籤邊框，適合分享到社群。')},'image/png')}
+/* ---------- 聲音特展（沉浸式） ---------- */
+const EXH={list:[],k:-1,tour:false,raf:0};
+async function openExhibit(petId,year){stopAll();const pet=petById(petId),list=items.filter(r=>(!petId||r.petId===petId)&&(r.date||'').startsWith(year)).sort((a,b)=>(a.date||'').localeCompare(b.date||'')||a.no-b.no);if(!list.length){toast('這一年還沒有收藏','err');return}
+ const who=pet?pet.name:'毛孩',d=$('#exhibit');EXH.list=list;EXH.k=-1;EXH.tour=false;
+ const span=`${(list[0].date||'').replaceAll('-','.')} — ${(list[list.length-1].date||'').replaceAll('-','.')}`;
+ d.innerHTML=`<div class="ex-top"><span class="mono">PET SOUND ARCHIVE · ANNUAL EXHIBITION</span><button class="ex-x" id="exX" aria-label="離開展間">${ic('close')}</button></div>
+ <div class="ex-hall" id="exHall" tabindex="0">
+  <section class="ex-room ex-intro"><p class="mono">${year} · ${list.length} WORKS</p><h2>${esc(who)}聲音特展</h2><p class="ex-year">${year}</p><p class="ex-sub">這一年，我們收下了 ${list.length} 段聲音。<br><span class="mono">${span}</span></p>
+   <div class="ex-cta"><button class="ex-btn pri" id="exTour">${ic('play')}開始導覽</button><button class="ex-btn" id="exFree">自由參觀 →</button></div><p class="ex-tip mono">戴上耳機效果更好 · 左右滑動或用方向鍵移動</p></section>
+  ${list.map((r,k)=>{const p=petById(r.petId),age=p&&ageAt(p.birthday,r.date);return `<section class="ex-room ex-work" data-k="${k}"><div class="ex-light"></div><div class="ex-frame"><button class="ex-art" data-k="${k}" aria-label="播放 ${esc(r.name)}"><canvas width="600" height="680"></canvas><span class="ex-play">${ic('play')}</span></button></div>
+   <div class="ex-label"><p class="mono">NO.${String(r.no||0).padStart(3,'0')} · ${(r.date||'').replaceAll('-','.')}${age?` · ${age}`:''}</p><h3>${esc(r.name)}</h3><p class="ex-story">${esc(r.story||typeName(r))}</p><div class="ex-bar"><i></i></div></div></section>`}).join('')}
+  <section class="ex-room ex-outro"><p class="mono">END OF EXHIBITION</p><h2>謝謝參觀</h2><p class="ex-sub">${esc(who)}的 ${year} 年，${list.length} 段聲音都收在這裡。</p><div class="ex-cta"><button class="ex-btn pri" id="exPoster">${ic('image')}帶走一張海報</button><button class="ex-btn" id="exAgain">從頭再看一次</button></div></section>
+ </div>
+ <div class="ex-foot"><button class="ex-nav" id="exPrev" aria-label="上一件">${ic('left')}</button><div class="ex-dots">${['',...list,''].map((_,i)=>`<i data-i="${i}"></i>`).join('')}</div><button class="ex-nav" id="exNext" aria-label="下一件">${ic('right')}</button></div>`;
+ if(!d.open)d.showModal();
+ const hall=$('#exHall'),rooms=$$('.ex-room',hall);
+ await fontsReady();for(let k=0;k<list.length;k++){const r=list[k],img=r.cover&&coverStyleOf(r)==='photo'?await safeImg(r.cover,r.id+':'+r.updatedAt):null;const cv=$(`.ex-art[data-k="${k}"] canvas`,hall);if(cv)drawCartridge(cv.getContext('2d'),600,680,r,{img})}
+ const cur=()=>Math.round(hall.scrollLeft/hall.clientWidth);
+ const go=i=>{i=Math.max(0,Math.min(rooms.length-1,i));EXH.prog=Date.now();hall.scrollTo({left:i*hall.clientWidth,behavior:reduced()?'auto':'smooth'})};
+ const mark=()=>{const i=cur();rooms.forEach((r,j)=>r.classList.toggle('on',j===i));$$('.ex-dots i',d).forEach((e,j)=>e.classList.toggle('on',j===i));$('#exPrev').disabled=i===0;$('#exNext').disabled=i===rooms.length-1};
+ let st;hall.addEventListener('scroll',()=>{clearTimeout(st);st=setTimeout(()=>{mark();if(!EXH.tour&&Date.now()-(EXH.prog||0)>1200){const i=cur()-1;if(EXH.k>=0&&EXH.k!==i){PL.audio.pause()}}},140)});mark();
+ const ui=()=>{$$('.ex-work',hall).forEach(w=>{const k=+w.dataset.k,on=EXH.k===k&&!PL.audio.paused;w.classList.toggle('playing',on);$('.ex-play',w).innerHTML=ic(on?'pause':'play')})};
+ const tick=()=>{const w=$(`.ex-work[data-k="${EXH.k}"] .ex-bar i`,hall);if(w&&PL.audio.duration)w.style.width=(PL.audio.currentTime/PL.audio.duration*100)+'%';if(!PL.audio.paused)EXH.raf=requestAnimationFrame(tick)};
+ const play=k=>new Promise(res=>{const r=list[k];if(PL.url)URL.revokeObjectURL(PL.url);PL.url=URL.createObjectURL(r.audio);PL.audio.src=PL.url;PL.id=r.id;EXH.k=k;PL.onTick=ui;
+  const end=()=>{PL.audio.removeEventListener('ended',end);PL.audio.removeEventListener('pause',pz);ui();res(true)},pz=()=>{if(PL.audio.currentTime<PL.audio.duration-.05){PL.audio.removeEventListener('ended',end);PL.audio.removeEventListener('pause',pz);ui();res(false)}};
+  PL.audio.addEventListener('ended',end);PL.audio.addEventListener('pause',pz);PL.audio.play().then(()=>{ui();cancelAnimationFrame(EXH.raf);tick()}).catch(()=>res(false))});
+ const tour=async()=>{EXH.tour=true;for(let k=0;k<list.length&&EXH.tour;k++){go(k+1);await new Promise(z=>setTimeout(z,900));if(!EXH.tour||!d.open)break;const ok=await play(k);if(!ok||!EXH.tour)break;await new Promise(z=>setTimeout(z,1100))}if(EXH.tour&&d.open)go(rooms.length-1);EXH.tour=false};
+ hall.onclick=e=>{const a=e.target.closest('.ex-art');if(!a)return;const k=+a.dataset.k;EXH.tour=false;if(EXH.k===k&&!PL.audio.paused){PL.audio.pause();return}stopAll();go(k+1);play(k)};
+ $('#exTour').onclick=()=>{stopAll();tour()};$('#exFree').onclick=()=>go(1);$('#exAgain').onclick=()=>{EXH.tour=false;stopAll();go(0)};
+ $('#exPoster').onclick=()=>exportExhibit(petId,year);
+ $('#exPrev').onclick=()=>{EXH.tour=false;go(cur()-1)};$('#exNext').onclick=()=>{EXH.tour=false;go(cur()+1)};
+ $$('.ex-dots i',d).forEach(e=>e.onclick=()=>{EXH.tour=false;go(+e.dataset.i)});
+ d.onkeydown=e=>{if(e.key==='ArrowRight'){e.preventDefault();EXH.tour=false;go(cur()+1)}else if(e.key==='ArrowLeft'){e.preventDefault();EXH.tour=false;go(cur()-1)}else if(e.key===' '){const i=cur()-1;if(i>=0&&i<list.length){e.preventDefault();$(`.ex-art[data-k="${i}"]`,hall).click()}}};
+ $('#exX').onclick=()=>d.close();d.onclose=()=>{EXH.tour=false;stopAll();cancelAnimationFrame(EXH.raf);PL.onTick=null;d.innerHTML=''};
+ window.addEventListener('resize',()=>{if(d.open)hall.scrollLeft=cur()*hall.clientWidth},{once:true});hall.focus()}
+async function exportExhibit(petId,year){await fontsReady();const pet=petById(petId),list=items.filter(r=>(!petId||r.petId===petId)&&(r.date||'').startsWith(year)).sort((a,b)=>(a.date||'').localeCompare(b.date||''));if(!list.length){toast('這一年還沒有收藏','err');return}
+ const who=pet?pet.name:'毛孩',W=1600,H=2200,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');paperTex(x,W,H,'#F1EBDD','ex'+year+petId);
+ x.fillStyle='#2E5E50';x.fillRect(0,0,W,14);x.fillRect(0,H-14,W,14);
+ x.textAlign='left';x.fillStyle='#6B5A42';x.font='500 24px "IBM Plex Mono",monospace';x.fillText('PET SOUND ARCHIVE  ·  ANNUAL EXHIBITION',100,130);
+ x.fillStyle='#302F2B';x.font='900 112px "Noto Serif TC",serif';x.fillText(`${who}聲音特展`,96,270);
+ x.fillStyle='#C7886D';x.font='italic 400 150px "EB Garamond",Georgia,serif';x.textAlign='right';x.fillText(year,W-96,280);x.textAlign='left';
+ const span=`${(list[0].date||'').replaceAll('-','.')} — ${(list[list.length-1].date||'').replaceAll('-','.')}`;x.fillStyle='#74736E';x.font='400 30px "Noto Sans TC",sans-serif';x.fillText(`這一年收下了 ${list.length} 段聲音　·　${span}`,100,340);
+ x.fillStyle='rgba(107,90,66,.35)';x.fillRect(100,380,W-200,2);
+ const pick=list.length<=9?list:[...Array(9)].map((_,i)=>list[Math.round(i*(list.length-1)/8)]),n=pick.length,cols=n<=4?2:3,rows=Math.ceil(n/cols),gx=100,gy=430,gw=W-200,gh=H-gy-300,cw=Math.min(gw/cols-40,(gh/rows-90)*600/680),chh=cw*680/600,tilt=[-1.6,1.1,-.6,1.4,-1.0,.7,-1.3,.9,-.4];
+ for(let i=0;i<n;i++){const r=pick[i],col=i%cols,row=Math.floor(i/cols),cx=gx+gw/cols*(col+.5),cy=gy+gh/rows*(row+.5)-24;const img=r.cover&&coverStyleOf(r)==='photo'?await safeImg(r.cover,r.id+':'+r.updatedAt):null;const cc=document.createElement('canvas');cc.width=600;cc.height=680;drawCartridge(cc.getContext('2d'),600,680,r,{img});
+  x.save();x.translate(cx,cy);x.rotate(tilt[i]*Math.PI/180);x.shadowColor='rgba(60,45,25,.25)';x.shadowBlur=30;x.shadowOffsetY=16;x.drawImage(cc,-cw/2,-chh/2,cw,chh);x.restore();
+  x.textAlign='center';x.fillStyle='#74736E';x.font='500 20px "IBM Plex Mono",monospace';x.fillText((r.date||'').slice(5).replace('-','.'),cx,cy+chh/2+44)}
+ x.textAlign='left';x.fillStyle='#74736E';x.font='400 26px "Noto Sans TC",sans-serif';x.fillText('把熟悉的聲音，收藏成永遠的日常。',100,H-150);
+ if(pet&&pet.stamp)drawPetStamp(x,W-190,H-180,70,pet);
+ if(LOGO.complete&&LOGO.naturalWidth){const lh=30,lw=lh*LOGO.naturalWidth/LOGO.naturalHeight;x.globalAlpha=.75;x.drawImage(LOGO,100,H-110,lw,lh);x.globalAlpha=1}
+ c.toBlob(b=>b&&offerFile(b,`${safeName(who)}聲音特展_${year}.png`,`${who}聲音特展 ${year}`,`把這一年的 ${list.length} 段收藏排成一張 1600×2200 的海報${list.length>9?'（挑選其中 9 段）':''}。`),'image/png')}
 async function exportPng(r){await fontsReady();const img=await safeImg(r.cover,r.cover?r.id+':'+r.updatedAt:null);const c=document.createElement('canvas');c.width=1200;c.height=1600;drawCard(c.getContext('2d'),1200,1600,cardMeta(r),{img});c.toBlob(b=>{if(!b){toast('圖片製作失敗','err');return}offerFile(b,fileBase(r)+'.png','卡片圖片做好了','這是靜態圖片，不含聲音；要分享聲音請用影片卡。')},'image/png')}
 function canVideo(){return !!(window.MediaRecorder&&HTMLCanvasElement.prototype.captureStream&&(window.AudioContext||window.webkitAudioContext))}
 async function exportVideo(r,btn){
@@ -2105,7 +2228,7 @@ async function openScope(r){stopAll();const sh=$('#detailSheet');
  $('#detail').addEventListener('close',()=>ro.disconnect(),{once:true})}
 
 /* ---------- 拼貼工作室（簡化版） ---------- */
-const CL={sel:[],fade:.3,gap:.5};
+const CL={sel:[],fade:.3,gap:.5,name:''};
 function openCollage(){stopAll();lastFocus=document.activeElement;const sh=$('#detailSheet');CL.sel=CL.sel.filter(id=>items.some(r=>r.id===id));
  const pool=[...items].sort((a,b)=>(a.date||'').localeCompare(b.date||'')||a.no-b.no);
  const total=()=>CL.sel.reduce((t,id)=>t+(items.find(r=>r.id===id)||{duration:0}).duration,0)+Math.max(0,CL.sel.length-1)*CL.gap;
@@ -2115,6 +2238,7 @@ function openCollage(){stopAll();lastFocus=document.activeElement;const sh=$('#d
  <div><h3 class="cl-h">播放順序</h3><ol class="cl-seq">${CL.sel.map((id,i)=>{const r=items.find(x=>x.id===id);return`<li><span class="mono">${String(i+1).padStart(2,'0')}</span><span class="nm">${esc(r.name)}</span><button class="btn text icon-btn" data-up="${i}" aria-label="往前" ${i?'':'disabled'}>↑</button><button class="btn text icon-btn" data-dn="${i}" aria-label="往後" ${i<CL.sel.length-1?'':'disabled'}>↓</button><button class="btn text icon-btn" data-rm="${i}" aria-label="移除">${ic('close')}</button></li>`}).join('')||'<li class="hint">從左邊勾選聲音。</li>'}</ol>
  <div class="cl-opt"><label>淡入淡出<select id="clFade">${[[0,'不淡化'],[.15,'0.15 秒'],[.3,'0.3 秒'],[.6,'0.6 秒'],[1,'1 秒']].map(([v,t])=>`<option value="${v}" ${CL.fade===v?'selected':''}>${t}</option>`).join('')}</select></label>
  <label>段落間隔<select id="clGap">${[[0,'緊接'],[.5,'0.5 秒'],[1,'1 秒'],[2,'2 秒']].map(([v,t])=>`<option value="${v}" ${CL.gap===v?'selected':''}>${t}</option>`).join('')}</select></label></div>
+ <label class="cl-name"><span>合輯名稱</span><input type="text" id="clName" maxlength="30" value="${esc(CL.name||(CL.sel.length?collageTitle(CL.sel.map(id=>items.find(r=>r.id===id)).filter(Boolean)):''))}" placeholder="選好聲音後會自動命名"></label>
  <p class="mono cl-tot">總長 ${fmt(total(),1)}</p>
  <div class="row cl-act"><button class="btn ghost" id="clPlay" ${CL.sel.length?'':'disabled'}>${ic('play')}試聽</button><button class="btn primary" id="clWav" ${CL.sel.length?'':'disabled'}>${ic('download')}輸出 WAV</button></div></div></div></div>`;
   $('#clX').onclick=()=>$('#detail').close();
@@ -2125,7 +2249,8 @@ function openCollage(){stopAll();lastFocus=document.activeElement;const sh=$('#d
   $('#clFade').onchange=e=>{CL.fade=+e.target.value;XS_stop();draw()};$('#clGap').onchange=e=>{CL.gap=+e.target.value;XS_stop();draw()};
   $('#clPlay').onclick=async()=>{if(XS.audio&&!XS.audio.paused&&XS.audio._cl){XS_stop();$('#clPlay').innerHTML=ic('play')+'試聽';return}
    const b=await buildCollage();if(!b)return;stopAll();const au=new Audio(URL.createObjectURL(b));au._cl=1;XS.audio=au;au.onended=()=>{const p=$('#clPlay');if(p)p.innerHTML=ic('play')+'試聽'};try{await au.play();$('#clPlay').innerHTML=ic('pause')+'停止'}catch(e){toast('無法播放：'+e.message,'err')}};
-  $('#clWav').onclick=async()=>{const b=await buildCollage();if(!b)return;const p=CL.sel.map(id=>petNameOf(items.find(r=>r.id===id))).find(Boolean);offerFile(b,`${safeName(p||'毛孩')}_聲音拼貼.wav`,'拼貼完成了',`共 ${CL.sel.length} 段、${fmt(total(),1)}，WAV 格式。`)}};
+  $('#clName').oninput=e=>{CL.name=e.target.value.trim()};
+  $('#clWav').onclick=async()=>{const b=await buildCollage();if(!b)return;const nm=($('#clName').value||'').trim()||'聲音合輯';offerFile(b,`${safeName(nm)}.wav`,`「${nm}」完成了`,`共 ${CL.sel.length} 段、${fmt(total(),1)}，WAV 格式。`)}};
  draw();if(!$('#detail').open)$('#detail').showModal()}
 async function buildCollage(){try{const bufs=[];for(const id of CL.sel){const r=items.find(x=>x.id===id);if(r)bufs.push(await decodeBlob(r.audio))}
  if(!bufs.length)return null;const sr=bufs[0].sampleRate,gap=Math.round(CL.gap*sr);
