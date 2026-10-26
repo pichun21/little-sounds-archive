@@ -1160,7 +1160,10 @@ function dbPutMany(recs,counter){return txp(['specimens','meta'],'readwrite',t=>
 let pets=[];
 const dbGetPets=()=>txp(['meta'],'readonly',t=>t.objectStore('meta').get('pets'));
 const dbSavePets=list=>txp(['meta'],'readwrite',t=>{t.objectStore('meta').put(list,'pets')});
-async function reload(){items=await dbAll();nextNo=((await dbCounter())||0)+1;const p=await dbGetPets();pets=Array.isArray(p)?p:[]}
+async function reload(){items=await dbAll();
+ {const ord=[...items].sort((a,b)=>(a.no||0)-(b.no||0)||(a.createdAt||0)-(b.createdAt||0));const ch=[];ord.forEach((r,i)=>{if(r.no!==i+1){r.no=i+1;ch.push(r)}});
+  const cnt=(await dbCounter())||0;if(ch.length||cnt!==ord.length){try{await dbPutMany(ch,ord.length)}catch(e){console.error(e)}}}
+ nextNo=items.length+1;const p=await dbGetPets();pets=Array.isArray(p)?p:[]}
 const petById=id=>pets.find(p=>p.id===id);
 const petNameOf=r=>{const p=r&&r.petId&&petById(r.petId);return p?p.name:(r&&r.pet)||''};
 function ageAt(birthday,date){if(!birthday||!date)return'';const b=new Date(birthday),d=new Date(date);if(isNaN(b)||isNaN(d)||d<b)return'';let m=(d.getFullYear()-b.getFullYear())*12+d.getMonth()-b.getMonth();if(d.getDate()<b.getDate())m--;if(m<1)return'未滿 1 個月';const y=Math.floor(m/12),mm=m%12;return y?(mm?`${y} 歲 ${mm} 個月`:`${y} 歲`):`${mm} 個月`}
@@ -1769,7 +1772,7 @@ async function openDetail(id,keepEdit){const r=items.find(x=>x.id===id);if(!r)re
  const go=d=>{const n=lastList[pos+d];if(n)openDetail(n.id)};$('#dPrev').onclick=()=>go(-1);$('#dNext').onclick=()=>go(1);
  $('#dVid').onclick=e=>exportVideo(r,e.currentTarget);
  $('#dWav').onclick=()=>download(r.audio,fileBase(r)+'.wav');
- $('#dDel').onclick=async()=>{if(!await ask('確定要刪除這段收藏？',`「${r.name}」的聲音、照片和故事都會從這台裝置移除，無法復原。若之前有備份，可以從備份檔還原。`,[{v:false,t:'保留'},{v:true,t:'刪除',cls:'danger'}]))return;try{await dbDel(r.id)}catch(e){dbErr(e);return}stopAll();await reload();d.close();renderArchive();renderVault();toast('已刪除。抽屜編號不會被重複使用')};
+ $('#dDel').onclick=async()=>{if(!await ask('確定要刪除這段收藏？',`「${r.name}」的聲音、照片和故事都會從這台裝置移除，無法復原。若之前有備份，可以從備份檔還原。`,[{v:false,t:'保留'},{v:true,t:'刪除',cls:'danger'}]))return;try{await dbDel(r.id)}catch(e){dbErr(e);return}stopAll();await reload();d.close();renderArchive();renderVault();toast('已刪除，其他收藏的編號已重新依序排好')};
  if(!keepEdit)play();else $('#dPlay').focus();
 }
 function editDetail(r){stopAll();const sh=$('#detailSheet');
