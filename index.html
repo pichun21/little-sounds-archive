@@ -1155,9 +1155,10 @@ const fileBase=r=>`No${pad(r.no)}_${safeName(r.name)}`;
 let db=null, items=[], nextNo=1;
 function openDB(){return new Promise((res,rej)=>{if(!window.indexedDB)return rej(new Error('no-idb'));const r=indexedDB.open('little-sounds-archive',1);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('specimens'))d.createObjectStore('specimens',{keyPath:'id'});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta')};r.onsuccess=()=>{db=r.result;res()};r.onerror=()=>rej(r.error);r.onblocked=()=>rej(new Error('blocked'))})}
 function txp(stores,mode,fn){return new Promise((res,rej)=>{let t,r;try{t=db.transaction(stores,mode);r=fn(t)}catch(e){return rej(e)}t.oncomplete=()=>res(r&&typeof r==='object'&&'result' in r?r.result:r);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error||new Error('交易中止'))})}
-const dbAllRaw=()=>txp(['specimens'],'readonly',t=>t.objectStore('specimens').getAll());const dbAll=async()=>{const raw=await dbAllRaw();const old=raw.filter(hasRawBlob);if(old.length&&!dbAll.mig){dbAll.mig=1;setTimeout(()=>dbPutMany(old,null).catch(console.error),400)}return raw.map(unpackRec)};
+const dbAllRaw=()=>txp(['specimens'],'readonly',t=>t.objectStore('specimens').getAll());const dbAll=async()=>{const raw=await dbAllRaw();const old=raw.filter(hasRawBlob);if(old.length&&!dbAll.mig){dbAll.mig=1;setTimeout(async()=>{try{await dbPutMany(old,null);if(typeof imgCache!=='undefined'&&imgCache.clear)imgCache.clear();await reload();renderArchive()}catch(e){console.error(e)}},400)}return raw.map(unpackRec)};
 // iOS Safari: a Blob read back from IndexedDB can break when it is written again. Copy every Blob into fresh bytes before each write.
 // iOS Safari 會把存在 IndexedDB 裡的 Blob 弄壞（再次寫入或久放後讀不出來）。改存成 ArrayBuffer，讀出時再組回 Blob。
+function playErr(e){const m=(e&&e.message)||'';if(/not supported|NotSupported|decode|src/i.test(m)||(e&&e.name==='NotSupportedError'))toast('這段聲音的檔案已經損壞，無法播放。請刪除後重新上傳原始音檔。','err');else toast('無法播放：'+m,'err')}
 const BLOBK=['audio','cover','coverOrig','photo'];
 async function packRec(r){const o={...r};for(const k of BLOBK){const v=o[k];if(v instanceof Blob){try{o[k]={__ab:await v.arrayBuffer(),type:v.type}}catch(e){console.warn('blob unreadable',k,e)}}}return o}
 function unpackRec(r){if(!r||typeof r!=='object')return r;let o=r;for(const k of BLOBK){const v=r[k];if(v&&v.__ab){if(o===r)o={...r};o[k]=new Blob([v.__ab],{type:v.type||''})}}return o}
@@ -1694,7 +1695,7 @@ function renderRings(body,list){
  const sync=()=>{$$('[data-rp]',body).forEach(b=>{const on=RG.id===b.dataset.rp&&!PL.audio.paused;b.classList.toggle('on',RG.id===b.dataset.rp);b.querySelector('svg').outerHTML=ic(on?'pause':'play')});paint()};
  const loop=()=>{paint();if(!PL.audio.paused)RG.raf=requestAnimationFrame(loop)};
  const play=r=>{if(RG.id===r.id&&!PL.audio.paused){PL.audio.pause();sync();return}stopAll();if(PL.url)URL.revokeObjectURL(PL.url);PL.url=URL.createObjectURL(r.audio);PL.audio.src=PL.url;PL.id=r.id;RG.id=r.id;PL.onTick=()=>sync();
-  PL.audio.play().then(()=>{sync();cancelAnimationFrame(RG.raf);loop();const t=$('#rgTip');if(t)t.textContent=`正在播放：${r.name}`}).catch(e=>toast('無法播放：'+e.message,'err'))};
+  PL.audio.play().then(()=>{sync();cancelAnimationFrame(RG.raf);loop();const t=$('#rgTip');if(t)t.textContent=`正在播放：${r.name}`}).catch(e=>playErr(e))};
  const pin=document.createElement('input');pin.type='file';pin.accept='image/*';pin.className='sr';body.appendChild(pin);
  pin.onchange=async()=>{const f=pin.files[0];pin.value='';if(!f||!g0.pet)return;try{const sq=await squarePhoto(f);pets=pets.map(p=>p.id===g0.pet.id?{...p,photo:sq}:p);await dbSavePets(pets);imgCache.delete('pet:'+g0.pet.id);toast(`已換上${g0.pet.name}的照片`);renderArchive()}catch{toast('這張照片無法讀取','err')}};
  const centre=async()=>{if(g0.pet){pin.click();return}
@@ -1771,7 +1772,7 @@ async function openDetail(id,keepEdit){const r=items.find(x=>x.id===id);if(!r)re
  PL.onTick=()=>{drawW();setBtn()};
  const ensure=()=>{if(PL.id!==r.id){if(PL.url)URL.revokeObjectURL(PL.url);PL.url=URL.createObjectURL(r.audio);PL.audio.src=PL.url;PL.id=r.id}};
  const loop=()=>{drawW();if(!PL.audio.paused)PL.raf=requestAnimationFrame(loop)};
- const play=async()=>{stopEd();ensure();try{await PL.audio.play();setBtn();loop()}catch(e){toast('無法播放：'+e.message,'err')}};
+ const play=async()=>{stopEd();ensure();try{await PL.audio.play();setBtn();loop()}catch(e){playErr(e)}};
  $('#dPlay').onclick=()=>{if(PL.id===r.id&&!PL.audio.paused){PL.audio.pause();cancelAnimationFrame(PL.raf);setBtn()}else play()};
  const seek=t=>{ensure();PL.audio.currentTime=Math.max(0,Math.min(r.duration-.01,t));drawW()};
  const wv=$('#dWave');wv.addEventListener('pointerdown',e=>{wv.setPointerCapture(e.pointerId);const f=ev=>{const rc=wv.getBoundingClientRect();seek((ev.clientX-rc.left)/rc.width*r.duration)};f(e);const up=()=>{wv.removeEventListener('pointermove',f);wv.removeEventListener('pointerup',up)};wv.addEventListener('pointermove',f);wv.addEventListener('pointerup',up)});
@@ -2196,7 +2197,7 @@ async function openScope(r){stopAll();const sh=$('#detailSheet');
   paint();if(!au.paused)XS.raf=requestAnimationFrame(loop)};
  const applyRate=()=>{au.playbackRate=V.rate;au.preservesPitch=au.mozPreservesPitch=au.webkitPreservesPitch=V.keep;info()};
  $('#xsPlay').disabled=false;$('#xsPng').disabled=false;
- $('#xsPlay').onclick=async()=>{if(!au.paused){au.pause();paint();return}stopAll();XS.audio=au;applyRate();if(V.loop&&V.sel&&(au.currentTime<V.sel[0]||au.currentTime>=V.sel[1]))au.currentTime=V.sel[0];else if(au.currentTime>=A.dur-.02)au.currentTime=V.sel?V.sel[0]:0;try{await au.play();loop()}catch(e){toast('無法播放：'+e.message,'err')}};
+ $('#xsPlay').onclick=async()=>{if(!au.paused){au.pause();paint();return}stopAll();XS.audio=au;applyRate();if(V.loop&&V.sel&&(au.currentTime<V.sel[0]||au.currentTime>=V.sel[1]))au.currentTime=V.sel[0];else if(au.currentTime>=A.dur-.02)au.currentTime=V.sel?V.sel[0]:0;try{await au.play();loop()}catch(e){playErr(e)}};
  au.onended=()=>{if(V.loop&&V.sel){au.currentTime=V.sel[0];au.play();return}cancelAnimationFrame(XS.raf);paint()};
  $('#xsLoop').onclick=()=>{if(!V.sel){toast('先在頻譜或波形上拖曳，框選一段要循環的片段');return}V.loop=!V.loop;$('#xsLoop').setAttribute('aria-pressed',V.loop);if(V.loop&&au.paused)$('#xsPlay').click()};
  $$('[data-rate]',sh).forEach(b=>b.onclick=()=>{V.rate=+b.dataset.rate;$$('[data-rate]',sh).forEach(x=>x.setAttribute('aria-pressed',x===b));applyRate()});
@@ -2265,7 +2266,7 @@ function openCollage(){stopAll();lastFocus=document.activeElement;const sh=$('#d
   $$('[data-rm]',sh).forEach(b=>b.onclick=()=>{CL.sel.splice(+b.dataset.rm,1);XS_stop();draw()});
   $('#clFade').onchange=e=>{CL.fade=+e.target.value;XS_stop();draw()};$('#clGap').onchange=e=>{CL.gap=+e.target.value;XS_stop();draw()};
   $('#clPlay').onclick=async()=>{if(XS.audio&&!XS.audio.paused&&XS.audio._cl){XS_stop();$('#clPlay').innerHTML=ic('play')+'試聽';return}
-   const b=await buildCollage();if(!b)return;stopAll();const au=new Audio(URL.createObjectURL(b));au._cl=1;XS.audio=au;au.onended=()=>{const p=$('#clPlay');if(p)p.innerHTML=ic('play')+'試聽'};try{await au.play();$('#clPlay').innerHTML=ic('pause')+'停止'}catch(e){toast('無法播放：'+e.message,'err')}};
+   const b=await buildCollage();if(!b)return;stopAll();const au=new Audio(URL.createObjectURL(b));au._cl=1;XS.audio=au;au.onended=()=>{const p=$('#clPlay');if(p)p.innerHTML=ic('play')+'試聽'};try{await au.play();$('#clPlay').innerHTML=ic('pause')+'停止'}catch(e){playErr(e)}};
   $('#clName').oninput=e=>{CL.name=e.target.value.trim()};
   $('#clWav').onclick=async()=>{const b=await buildCollage();if(!b)return;const nm=($('#clName').value||'').trim()||'聲音合輯';offerFile(b,`${safeName(nm)}.wav`,`「${nm}」完成了`,`共 ${CL.sel.length} 段、${fmt(total(),1)}，WAV 格式。`)}};
  draw();if(!$('#detail').open)$('#detail').showModal()}
@@ -2369,7 +2370,7 @@ function heroPlay(){const r=HERO.list[HERO.sel];if(!r)return;
  if(r.demo){const ctx=AC();if(ctx.resume)ctx.resume();const ab=ctx.createBuffer(1,r.samples.length,DEMO_SR);ab.getChannelData(0).set(r.samples);const src=ctx.createBufferSource();src.buffer=ab;src.connect(ctx.destination);src.start();HERO.src=src;HERO.t0=ctx.currentTime;HERO.playing=true;HERO.demoPlaying=true;
   src.onended=()=>{if(HERO.src===src){HERO.src=null;HERO.playing=false;HERO.demoPlaying=false;heroUI()}}}
  else{if(PL.id!==r.id){if(PL.url)URL.revokeObjectURL(PL.url);PL.url=URL.createObjectURL(r.audio);PL.audio.src=PL.url;PL.id=r.id}
-  PL.onTick=()=>{if(PL.audio.paused){HERO.playing=false;heroUI()}};PL.audio.currentTime=0;PL.audio.play().then(()=>{HERO.playing=true;HERO.demoPlaying=false;heroUI();loop()}).catch(e=>toast('無法播放：'+e.message,'err'));return}
+  PL.onTick=()=>{if(PL.audio.paused){HERO.playing=false;heroUI()}};PL.audio.currentTime=0;PL.audio.play().then(()=>{HERO.playing=true;HERO.demoPlaying=false;heroUI();loop()}).catch(e=>playErr(e));return}
  heroUI();loop()}
 function heroSelect(k,play){if(k===HERO.sel&&!play)return;const was=HERO.playing;stopAll();HERO.playing=false;HERO.sel=k;heroUI();if(play||was)heroPlay()}
 function heroInit(){
