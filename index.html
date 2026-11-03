@@ -824,7 +824,7 @@ footer{border-top:1px solid var(--line)}
 .rg-cbtn{display:flex;margin:8px auto 0}
 @media (max-width:860px){.rg{grid-template-columns:1fr;gap:20px}.rg-list{max-height:none}}
 </style>
-<style id="v25">.pstamp .row{display:flex;gap:10px;align-items:center}.stamp-pv{width:48px;height:48px;flex:none;background:#FBF8F1;border-radius:6px}
+<style id="v25">.pstamp .row{display:flex;gap:10px;align-items:center}.stamp-pv{width:48px;height:48px;flex:none;background:#FBF8F1;border-radius:6px}.pstamp select{flex:1;min-width:0}
 .xs{display:grid;gap:12px;padding:20px 24px 28px}.xs-note{margin:0;font-size:13px}
 .xs-box{position:relative;border:1px solid rgba(48,47,43,.18);border-radius:8px;overflow:hidden;background:#FBF8F1}
 #xsSpec{display:block;width:100%;height:180px;cursor:crosshair;touch-action:none}#xsWave{display:block;width:100%;height:130px;cursor:pointer;touch-action:none}
@@ -933,6 +933,12 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 .pv-slot{margin:6px 0 4px;padding:14px 10px 8px;background:#EEEAE0;border-radius:14px;text-align:center}.pv-slot[hidden]{display:none}.pv-slot canvas{display:block;width:min(78%,300px)!important;max-width:300px;height:auto!important;margin:0 auto;filter:drop-shadow(0 10px 12px rgba(48,47,43,.16))}
 .pv-slot::after{content:"即時預覽";display:block;font:500 11px "IBM Plex Mono",monospace;letter-spacing:.1em;color:#8A877E;margin-top:6px}
 @media(max-width:760px){#detailSheet .face-col:not(:has(canvas:not([hidden]))){display:none}}
+.cover-box{margin:12px 0 0!important;padding:12px;border:1px dashed rgba(47,46,42,.2);border-radius:12px;background:#FBFAF6}.cover-box[hidden]{display:none}.cover-box>.lbl{display:none}
+.cover-box.pulse{animation:cbPulse 1.3s ease}@keyframes cbPulse{0%,100%{box-shadow:none}30%{box-shadow:0 0 0 4px rgba(46,94,80,.25)}}
+.pm-open{width:100%;border-style:dashed!important;margin-top:4px}.pet-new-box{display:grid;gap:6px;margin-top:6px}.pet-new-box[hidden]{display:none}
+.prow input[type=date]{max-width:100%;min-width:0;width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none}.prow .pf{min-width:0}.prow .pf label{min-width:0}
+.e-audio{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid rgba(47,46,42,.14);border-radius:12px;background:#FBFAF6;margin:0 0 14px}.e-audio .btn{flex:none}
+.repl-banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:rgba(199,136,109,.14);border:1px solid rgba(199,136,109,.4);color:#7A4630;border-radius:10px;padding:10px 14px;margin:0 0 14px;font-size:14px}
 </style>
 </head>
 <body>
@@ -1160,7 +1166,12 @@ const dbAllRaw=()=>txp(['specimens'],'readonly',t=>t.objectStore('specimens').ge
 // iOS Safari 會把存在 IndexedDB 裡的 Blob 弄壞（再次寫入或久放後讀不出來）。改存成 ArrayBuffer，讀出時再組回 Blob。
 function playErr(e){const m=(e&&e.message)||'';if(/not supported|NotSupported|decode|src/i.test(m)||(e&&e.name==='NotSupportedError'))toast('這段聲音的檔案已經損壞，無法播放。請刪除後重新上傳原始音檔。','err');else toast('無法播放：'+m,'err')}
 const BLOBK=['audio','cover','coverOrig','photo'];
-async function packRec(r){const o={...r};for(const k of BLOBK){const v=o[k];if(v instanceof Blob){try{o[k]={__ab:await v.arrayBuffer(),type:v.type}}catch(e){console.warn('blob unreadable',k,e)}}}return o}
+async function readBlob(b){try{return await b.arrayBuffer()}catch(e){}
+ try{return await new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.onerror=()=>rej(fr.error);fr.readAsArrayBuffer(b)})}catch(e){}
+ try{const u=URL.createObjectURL(b);try{const r=await fetch(u);return await r.arrayBuffer()}finally{URL.revokeObjectURL(u)}}catch(e){}
+ if(/^image\//.test(b.type||'')){try{const u=URL.createObjectURL(b);const im=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=u});const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);URL.revokeObjectURL(u);const nb=await new Promise(r=>c.toBlob(r,'image/jpeg',.9));return {ab:await nb.arrayBuffer(),type:'image/jpeg'}}catch(e){}}
+ return null}
+async function packRec(r){const o={...r};for(const k of BLOBK){const v=o[k];if(v instanceof Blob){const ab=await readBlob(v);if(ab&&ab.ab)o[k]={__ab:ab.ab,type:ab.type};else if(ab)o[k]={__ab:ab,type:v.type};else{console.warn('blob unreadable, dropped',k);o[k]=null;packRec.dropped=(packRec.dropped||0)+1}}}return o}
 function unpackRec(r){if(!r||typeof r!=='object')return r;let o=r;for(const k of BLOBK){const v=r[k];if(v&&v.__ab){if(o===r)o={...r};o[k]=new Blob([v.__ab],{type:v.type||''})}}return o}
 function hasRawBlob(r){return r&&BLOBK.some(k=>r[k] instanceof Blob)}
 
@@ -1170,7 +1181,7 @@ const dbCounter=()=>txp(['meta'],'readonly',t=>t.objectStore('meta').get('counte
 function dbAdd(rec){return new Promise((res,rej)=>{const t=db.transaction(['specimens','meta'],'readwrite');const m=t.objectStore('meta');const g=m.get('counter');g.onsuccess=()=>{const n=(g.result||0)+1;rec.no=n;m.put(n,'counter');t.objectStore('specimens').add(rec)};t.oncomplete=()=>res(rec);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error||new Error('交易中止'))})}
 async function dbPutMany(recs0,counter){const recs=[];for(const r of recs0)recs.push(await packRec(r));return txp(['specimens','meta'],'readwrite',t=>{const s=t.objectStore('specimens');recs.forEach(r=>s.put(r));if(counter!=null)t.objectStore('meta').put(counter,'counter')})}
 let pets=[];
-const dbGetPets=async()=>{const p=await txp(['meta'],'readonly',t=>t.objectStore('meta').get('pets'));return Array.isArray(p)?p.map(unpackRec):p};
+const dbGetPets=async()=>{const p=await txp(['meta'],'readonly',t=>t.objectStore('meta').get('pets'));if(Array.isArray(p)&&p.some(hasRawBlob)&&!dbGetPets.mig){dbGetPets.mig=1;const up=p.map(unpackRec);setTimeout(()=>dbSavePets(up).catch(console.error),300)}return Array.isArray(p)?p.map(unpackRec):p};
 const dbSavePets=async list0=>{const list=[];for(const p of list0)list.push(await packRec(p));return txp(['meta'],'readwrite',t=>{t.objectStore('meta').put(list,'pets')})};
 async function reload(){items=await dbAll();
  {const ord=[...items].sort((a,b)=>(a.no||0)-(b.no||0)||(a.createdAt||0)-(b.createdAt||0));const ch=[];ord.forEach((r,i)=>{if(r.no!==i+1){r.no=i+1;ch.push(r)}});
@@ -1364,6 +1375,8 @@ function bindForm(root,p,data,onChange){
  const gen=()=>{clearTimeout(gt);pend=new Promise(res=>{gt=setTimeout(async()=>{try{cover=await renderCrop(orig,crop)}catch{}res();fire()},180)});return pend};
  const showCover=()=>{$p('crop').hidden=!orig;$p('coverDel').hidden=!orig;$p('coverLbl').textContent=orig?'換一張照片':'選擇照片';if(url){URL.revokeObjectURL(url);url=null}nat=null;if(orig){url=URL.createObjectURL(orig);cimg.onload=()=>{nat={w:cimg.naturalWidth,h:cimg.naturalHeight};zoom.value=crop.z;place()};cimg.onerror=()=>{toast('這張封面照片讀不出來，請重新選一張','err')};cimg.src=url}};
  showCover();
+ {const box=$p('cover').closest('.fld');box.id=p+'coverBox';box.classList.add('cover-box');const cf=$p('cst').closest('fieldset');cf.appendChild(box);$p('cstHint').remove()}
+ const syncCoverBox=()=>{$p('coverBox').hidden=!(curCst()==='photo'||orig)};syncCoverBox();
  frame.addEventListener('pointerdown',e=>{if(!nat)return;e.preventDefault();frame.setPointerCapture(e.pointerId);let lx=e.clientX,ly=e.clientY;frame.style.cursor='grabbing';
   const mv=ev=>{const g=geo();crop.cx-=(ev.clientX-lx)/(nat.w*g.s);crop.cy-=(ev.clientY-ly)/(nat.h*g.s);lx=ev.clientX;ly=ev.clientY;place()};
   const up=()=>{frame.removeEventListener('pointermove',mv);frame.removeEventListener('pointerup',up);frame.removeEventListener('pointercancel',up);frame.style.cursor='';gen()};
@@ -1372,12 +1385,12 @@ function bindForm(root,p,data,onChange){
  frame.addEventListener('wheel',e=>{if(!nat)return;e.preventDefault();crop.z=Math.min(3,Math.max(1,crop.z-e.deltaY*.002));zoom.value=crop.z;place();gen()},{passive:false});
  zoom.addEventListener('input',e=>{e.stopPropagation();crop.z=+zoom.value;place();gen()});
  window.addEventListener('resize',place);
- $p('cover').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;try{orig=await shrinkImage(file,1600);crop={z:1,cx:.5,cy:.5};showCover();$p('cstHint').hidden=true;if(!data.coverStyle){const ph=$(`input[name=${p}cst][value=photo]`);if(ph)ph.checked=true}await gen()}catch{toast('這張照片無法讀取，換一張試試','err')}};
- $p('coverDel').onclick=()=>{orig=null;cover=null;showCover();fire()};
+ $p('cover').onchange=async e=>{const file=e.target.files[0];e.target.value='';if(!file)return;try{orig=await shrinkImage(file,1600);crop={z:1,cx:.5,cy:.5};showCover();{const ph=$(`input[name=${p}cst][value=photo]`);if(ph)ph.checked=true}syncCoverBox();if(false){const ph=$(`input[name=${p}cst][value=photo]`);if(ph)ph.checked=true}await gen()}catch{toast('這張照片無法讀取，換一張試試','err')}};
+ $p('coverDel').onclick=()=>{orig=null;cover=null;showCover();syncCoverBox();fire()};
  // general
  const get=()=>({shellColor:curShell(),coverStyle:curCst(),palette:curPal(),customStops:cst.slice(),name:f.name.value.trim(),petId:petId||'',pet:petId?(petById(petId)||{}).name||'':'',date:f.date.value||today(),story:f.story.value.trim(),type:curType(),customType:curType()==='custom'?f.ctype.value.trim():'',tags:[...sel],cover,coverOrig:orig,coverCrop:orig?{z:crop.z,cx:crop.cx,cy:crop.cy}:null});
  root.addEventListener('input',e=>{if(e.target===f.name&&f.name.value.trim())$p('nameErr').hidden=true;if(e.target!==$p('newtag'))fire()});
- root.addEventListener('change',e=>{if(e.target.name===p+'cst'){$p('cstHint').hidden=!(curCst()==='photo'&&!orig);if(curCst()==='photo'&&!orig)$p('cover').click()}if(e.target.name===p+'type')syncType();if(e.target.name===p+'pal')syncPal();if(e.target.name===p+'shell'){syncShell();if(e.target.value==='custom')setTimeout(()=>$p('shc').click(),0)}fire()});
+ root.addEventListener('change',e=>{if(e.target.name===p+'cst'){syncCoverBox();if(curCst()==='photo'&&!orig){const b=$p('coverBox');b.classList.add('pulse');setTimeout(()=>b.classList.remove('pulse'),1400)}}if(e.target.name===p+'type')syncType();if(e.target.name===p+'pal')syncPal();if(e.target.name===p+'shell'){syncShell();if(e.target.value==='custom')setTimeout(()=>$p('shc').click(),0)}fire()});
  $p('sug').onclick=()=>{const arr=NAMES[curType()]||NAMES.custom;let n;do{n=arr[Math.floor(Math.random()*arr.length)]}while(arr.length>1&&n===f.name.value);f.name.value=n;$p('nameErr').hidden=true;fire()};
  return{get,flush:()=>pend||Promise.resolve(),validate(){const ok=!!f.name.value.trim();$p('nameErr').hidden=ok;f.name.setAttribute('aria-invalid',ok?'false':'true');if(!ok)f.name.focus();return ok},setType(t){const i=$(`input[name=${p}type][value=${t}]`);if(i){i.checked=true;syncType();fire()}}};
 }
@@ -1538,7 +1551,7 @@ function setupEditor(mono,sr,origin){
  const ab=AC().createBuffer(1,ED.s.length,ED.sr);ab.getChannelData(0).set(ED.s);ED.ab=ab;
  [ED.st,ED.en]=autoTrim(ED.s,ED.sr);ED.head=ED.st;
  $('#edOrigin').textContent=origin==='錄音'?'來源：現場錄音':origin==='影片'?'來源：影片':'來源：上傳音檔';
- {const pc=$('#pvCart')||document.querySelector('canvas[aria-label="聲音卡匣預覽"]');if(pc&&pc.__undock)pc.__undock()}NF=bindForm($('#newForm'),'n_',{type:pendingType,date:today()},schedPreview);dockPreview($('#pvCart'),$('#n_pvslot'));
+ {const pc=$('#pvCart')||document.querySelector('canvas[aria-label="聲音卡匣預覽"]');if(pc&&pc.__undock)pc.__undock()}NF=bindForm($('#newForm'),'n_',REPL?REPL.rec:{type:pendingType,date:today()},schedPreview);dockPreview($('#pvCart'),$('#n_pvslot'));showRepl();
  showState('edit');requestAnimationFrame(()=>{drawEditor();updTrim();schedPreview()});
  toast(ED.st>0.05||ED.en<ED.dur-0.05?'已自動框出有聲音的段落，可以再拖曳兩側把手微調':'聲音已載入，可以拖曳兩側把手裁切');
  setTimeout(()=>$('#edPlay').focus({preventScroll:true}),50);scrollTo$('#record');return true
@@ -1569,7 +1582,9 @@ function playEd(full){if(!ED.ab)return;stopAll();const ctx=AC();if(ctx.resume)ct
  const loop=()=>{if(!ED.playing)return;ED.head=Math.min(ED.to,ED.off+(ctx.currentTime-ED.t0));drawEditor();ED.raf=requestAnimationFrame(loop)};loop()}
 function stopEd(){if(ED.src){const s=ED.src;ED.src=null;try{s.stop()}catch{}}ED.playing=false;cancelAnimationFrame(ED.raf);edBtn()}
 function edBtn(){const a=$('#edAll');if(a)a.innerHTML=ic(ED.playing&&ED.full?'pause':'play')+(ED.playing&&ED.full?'停止':'完整試聽');const b=$('#edPlay');if(!b)return;b.innerHTML=ic(ED.playing&&!ED.full?'pause':'play');b.setAttribute('aria-label',ED.playing?'暫停試聽':'試聽保留片段')}
-function resetEditor(){stopEd();Object.assign(ED,{s:null,ab:null,dirty:false,pk:null,pkN:0});showState('idle')}
+function showRepl(){let b=$('#replBanner');if(!REPL){if(b)b.remove();return}if(!b){b=document.createElement('div');b.id='replBanner';b.className='repl-banner';$('#newForm').before(b)}b.innerHTML=`<span>正在替換「<b>${esc(REPL.rec.name)}</b>」（No.${pad(REPL.rec.no)}）的聲音。裁好後按「收進抽屜」就會存回這一件。</span><button type="button" class="btn text sm" id="replX">取消替換</button>`;$('#replX').onclick=()=>{REPL=null;resetEditor();toast('已取消，原本的聲音沒有變動')}}
+let REPL=null;
+function resetEditor(){REPL=null;showRepl();stopEd();Object.assign(ED,{s:null,ab:null,dirty:false,pk:null,pkN:0});showState('idle')}
 let pvTimer=0;function schedPreview(){if(ED.s)drawEditor();clearTimeout(pvTimer);pvTimer=setTimeout(renderPreview,120)}
 function dockPreview(cv,slot){if(!cv||!slot)return;if(cv.__undock)cv.__undock();const home=cv.parentNode,mark=document.createComment('pv');home.insertBefore(mark,cv);const mq=matchMedia('(max-width:760px)');
  const apply=()=>{if(!slot.isConnected){mq.removeEventListener('change',apply);return}if(mq.matches){slot.appendChild(cv);slot.hidden=false}else{mark.parentNode&&mark.parentNode.insertBefore(cv,mark.nextSibling);slot.hidden=true}};apply();mq.addEventListener('change',apply);cv.__undock=()=>{mq.removeEventListener('change',apply);if(mark.parentNode){mark.parentNode.insertBefore(cv,mark);mark.remove()}cv.__undock=null}}
@@ -1580,6 +1595,8 @@ async function saveNew(){
  const btn=$('#saveBtn');btn.classList.add('loading');btn.disabled=true;stopAll();
  try{const d=NF.get();const s=processClip(ED.s,ED.sr,ED.st,ED.en,$('#norm').checked);const audio=encodeWav(s,ED.sr);const now=Date.now();
   const rec={id:uid(),no:0,name:d.name,pet:d.pet,petId:d.petId,type:d.type,customType:d.customType,shellColor:d.shellColor||'',coverStyle:d.coverStyle,palette:d.palette,customStops:d.customStops,date:d.date,story:d.story,tags:d.tags,cover:d.cover,coverOrig:d.coverOrig,coverCrop:d.coverCrop,audio,audioType:'audio/wav',duration:s.length/ED.sr,peaks:calcPeaks(s,320),fav:false,createdAt:now,updatedAt:now,backedUp:false};
+  if(REPL){const old=REPL.rec,upd={...old,...rec,id:old.id,no:old.no,createdAt:old.createdAt,fav:old.fav,updatedAt:now};try{await dbPut(upd)}catch(e){dbErr(e);return}
+   await reload();resetEditor();renderArchive();renderVault();toast(`已替換「${upd.name}」的聲音`);scrollTo$('#archive');setTimeout(()=>{const el=$(`[data-id="${upd.id}"]`);if(el){el.classList.add('just-saved');setTimeout(()=>el.classList.remove('just-saved'),2200)}},350);return}
   try{await dbAdd(rec)}catch(e){dbErr(e);return}
   const first=items.length===0;await reload();resetEditor();renderArchive();renderVault();if(first)askPersist();
   toast(`已收進 No.${pad(rec.no)} 抽屜。目前只存在這台裝置，記得到保險箱備份`);
@@ -1632,11 +1649,13 @@ function openPetManager(){stopAll();lastFocus=document.activeElement;const sh=$(
  const draw=()=>{sh.innerHTML=`<div class="sheet-head"><span class="mono">PETS</span><button class="btn text icon-btn" id="pmX" aria-label="關閉">${ic('close')}</button></div>
   <div class="pm"><h2 class="d-title" id="dTitle">管理毛孩</h2><p class="hint">填上生日，時光軸就會標出每段聲音錄下時牠幾歲。</p>
   <ul class="plist">${pets.map(row).join('')||'<li class="hint">還沒有毛孩檔案。</li>'}</ul>
-  <div class="row pet-new"><input type="text" id="pmNew" maxlength="20" placeholder="新增毛孩的名字" aria-label="新增毛孩的名字"><button class="btn primary sm" id="pmAdd">${ic('check')}新增</button></div></div>`;
-  $$('.prow',sh).forEach(li=>{const p=petById(li.dataset.id),cv=$('.stamp-pv',li);if(p&&cv){const c=cv.getContext('2d');c.clearRect(0,0,96,96);if(p.stamp)drawPetStamp(c,48,48,40,p);else cv.style.opacity=.25}});
+  <button type="button" class="btn ghost pm-open" id="pmOpen">＋ 新增另一位毛孩</button>
+  <div class="pet-new-box" id="pmBox" hidden><span class="lbl">新毛孩的名字</span><div class="row pet-new"><input type="text" id="pmNew" maxlength="20" placeholder="例如：小麥" aria-label="新毛孩的名字"><button class="btn primary sm" id="pmAdd">${ic('check')}新增</button></div></div></div>`;
+  $$('.prow',sh).forEach(li=>{const p=petById(li.dataset.id),cv=$('.stamp-pv',li);if(p&&cv){const c=cv.getContext('2d');c.clearRect(0,0,96,96);if(p.stamp)drawPetStamp(c,48,48,40,p);else cv.hidden=true}});
   $$('.prow .pph',sh).forEach(l=>{const p=petById(l.closest('.prow').dataset.id);if(p&&p.photo)l.style.backgroundImage=`url(${URL.createObjectURL(p.photo)})`});
   $('#pmX').onclick=()=>$('#detail').close();
-  $('#pmAdd').onclick=async()=>{const p=await addPet($('#pmNew').value);if(p){draw();renderArchive()}};
+  $('#pmOpen').onclick=()=>{$('#pmBox').hidden=false;$('#pmOpen').hidden=true;$('#pmNew').focus()};
+  $('#pmAdd').onclick=async()=>{const nm=$('#pmNew').value.trim();if(!nm){toast('請先輸入名字');$('#pmNew').focus();return}if(pets.some(x=>x.name===nm)){toast(`已經有「${nm}」了`);return}try{const p=await addPet(nm);if(p){draw();renderArchive();toast(`已新增「${p.name}」`)}}catch(e){dbErr(e)}};
   $('#pmNew').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#pmAdd').click()}});
   $$('.prow',sh).forEach(li=>{const id=li.dataset.id;
    $$('[data-k]',li).forEach(inp=>inp.addEventListener('change',async()=>{const k=inp.dataset.k,v=inp.value.trim();if(k==='name'&&!v){inp.value=petById(id).name;toast('名字不能空白','err');return}pets=pets.map(p=>p.id===id?{...p,[k]:v}:p);await dbSavePets(pets);
@@ -1791,10 +1810,13 @@ async function openDetail(id,keepEdit){const r=items.find(x=>x.id===id);if(!r)re
  if(!keepEdit)play();else $('#dPlay').focus();
 }
 function editDetail(r){stopAll();const sh=$('#detailSheet');
- sh.innerHTML=`<div class="sheet-head"><span class="mono">EDIT · NO. ${pad(r.no)}</span><button class="btn text icon-btn" id="eX" aria-label="取消編輯">${ic('close')}</button></div><div class="sheet-body"><div class="face-col"><div class="seg" hidden role="group" aria-label="預覽方式"><button data-ef="cart" aria-pressed="true">聲音卡匣</button><button data-ef="card" aria-pressed="false">收藏卡</button></div><canvas class="cartcv" id="eCart" width="600" height="680" aria-label="聲音卡匣預覽"></canvas><canvas class="card" id="eCard" width="600" height="800" aria-label="收藏卡預覽" hidden></canvas></div><div><h2 class="d-title" id="dTitle">編輯收藏</h2><div class="form" id="eForm"></div><div class="actions"><button class="btn ghost" id="eCancel">取消</button><button class="btn primary" id="eSave">${ic('check')}儲存修改</button></div></div></div>`;
+ sh.innerHTML=`<div class="sheet-head"><span class="mono">EDIT · NO. ${pad(r.no)}</span><button class="btn text icon-btn" id="eX" aria-label="取消編輯">${ic('close')}</button></div><div class="sheet-body"><div class="face-col"><div class="seg" hidden role="group" aria-label="預覽方式"><button data-ef="cart" aria-pressed="true">聲音卡匣</button><button data-ef="card" aria-pressed="false">收藏卡</button></div><canvas class="cartcv" id="eCart" width="600" height="680" aria-label="聲音卡匣預覽"></canvas><canvas class="card" id="eCard" width="600" height="800" aria-label="收藏卡預覽" hidden></canvas></div><div><h2 class="d-title" id="dTitle">編輯收藏</h2>
+<div class="e-audio"><div><span class="lbl">聲音</span><p class="hint" style="margin:2px 0 0">目前 ${fmt(r.duration,1)}。換聲音會把新的檔案帶到錄製台，裁好後再存回這一件收藏，名字、照片與設定都會保留。</p></div><label class="btn ghost sm file">${ic('upload')}換一段聲音<input type="file" accept="audio/*,video/*,.m4a,.mov,.mp4,.wav,.mp3" id="eAudio" class="sr"></label></div>
+<div class="form" id="eForm"></div><div class="actions"><button class="btn ghost" id="eCancel">取消</button><button class="btn primary" id="eSave">${ic('check')}儲存修改</button></div></div></div>`;
  const draw=async d=>{const img=d.cover?await safeImg(d.cover,null):null;await fontsReady();const cv=$('#eCard'),m={...cardMeta(r),...d,peaks:r.peaks,duration:r.duration};if(cv)drawCard(cv.getContext('2d'),600,800,m,{img});const cc=$('#eCart');if(cc)drawCartridge(cc.getContext('2d'),600,680,m,{img:coverStyleOf(m)==='photo'?img:null})};
  $$('#detailSheet [data-ef]').forEach(b=>b.onclick=()=>{$$('#detailSheet [data-ef]').forEach(x=>x.setAttribute('aria-pressed',x===b));$('#eCart').hidden=b.dataset.ef!=='cart';$('#eCard').hidden=b.dataset.ef!=='card'});
  const F=bindForm($('#eForm'),'e_',r,draw);draw(F.get());dockPreview($('#eCart'),$('#e_pvslot'));
+ $('#eAudio').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;REPL={rec:r};$('#detail').close();scrollTo$('#record');setTimeout(()=>importMedia(f),250)};
  const back=()=>openDetail(r.id,true);$('#eX').onclick=back;$('#eCancel').onclick=back;
  $('#eSave').onclick=async e=>{if(!F.validate())return;const btn=e.currentTarget;setLoading(btn,true,'儲存中…');await F.flush();const d=F.get();const upd={...r,...d,updatedAt:Date.now(),backedUp:false};try{await dbPut(upd)}catch(err){setLoading(btn,false);dbErr(err);return}await reload();renderArchive();renderVault();$('#detail').close();toast(`已儲存「${upd.name||'這段收藏'}」的修改`);setTimeout(()=>{const el=document.querySelector(`[data-id="${r.id}"]`);if(el){el.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'});el.classList.add('just-saved');setTimeout(()=>el.classList.remove('just-saved'),2200)}},150)};
  $('#e_name').focus();
