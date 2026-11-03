@@ -930,6 +930,9 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 .ex-dots{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;max-width:60vw}.ex-dots i{width:7px;height:7px;border-radius:50%;background:rgba(239,230,211,.22);cursor:pointer;transition:all .3s}.ex-dots i.on{background:#C7886D;width:22px;border-radius:4px}
 @media (prefers-reduced-motion:reduce){.ex-frame,.ex-label,.ex-light{transition:none}}
 @keyframes justSaved{0%{box-shadow:0 0 0 0 rgba(46,94,80,.55)}100%{box-shadow:0 0 0 18px rgba(46,94,80,0)}}.just-saved{animation:justSaved 1.1s ease-out 2;border-radius:10px}
+.pv-slot{margin:6px 0 4px;padding:14px 10px 8px;background:#EEEAE0;border-radius:14px;text-align:center}.pv-slot[hidden]{display:none}.pv-slot canvas{display:block;width:min(78%,300px)!important;max-width:300px;height:auto!important;margin:0 auto;filter:drop-shadow(0 10px 12px rgba(48,47,43,.16))}
+.pv-slot::after{content:"即時預覽";display:block;font:500 11px "IBM Plex Mono",monospace;letter-spacing:.1em;color:#8A877E;margin-top:6px}
+@media(max-width:760px){#detailSheet .face-col:not(:has(canvas:not([hidden]))){display:none}}
 </style>
 </head>
 <body>
@@ -1152,18 +1155,22 @@ const fileBase=r=>`No${pad(r.no)}_${safeName(r.name)}`;
 let db=null, items=[], nextNo=1;
 function openDB(){return new Promise((res,rej)=>{if(!window.indexedDB)return rej(new Error('no-idb'));const r=indexedDB.open('little-sounds-archive',1);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('specimens'))d.createObjectStore('specimens',{keyPath:'id'});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta')};r.onsuccess=()=>{db=r.result;res()};r.onerror=()=>rej(r.error);r.onblocked=()=>rej(new Error('blocked'))})}
 function txp(stores,mode,fn){return new Promise((res,rej)=>{let t,r;try{t=db.transaction(stores,mode);r=fn(t)}catch(e){return rej(e)}t.oncomplete=()=>res(r&&typeof r==='object'&&'result' in r?r.result:r);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error||new Error('交易中止'))})}
-const dbAll=()=>txp(['specimens'],'readonly',t=>t.objectStore('specimens').getAll());
+const dbAllRaw=()=>txp(['specimens'],'readonly',t=>t.objectStore('specimens').getAll());const dbAll=async()=>{const raw=await dbAllRaw();const old=raw.filter(hasRawBlob);if(old.length&&!dbAll.mig){dbAll.mig=1;setTimeout(()=>dbPutMany(old,null).catch(console.error),400)}return raw.map(unpackRec)};
 // iOS Safari: a Blob read back from IndexedDB can break when it is written again. Copy every Blob into fresh bytes before each write.
-async function freshBlob(b){if(!(b instanceof Blob))return b;try{const ab=await b.arrayBuffer();return new Blob([ab],{type:b.type})}catch(e){console.warn('blob unreadable',e);return null}}
-async function freshRec(r){const o={...r};for(const k of['audio','cover','coverOrig','photo'])if(o[k] instanceof Blob)o[k]=await freshBlob(o[k]);if(r.audio instanceof Blob&&!o.audio)throw new Error('這段聲音的檔案已經損壞，無法再儲存');return o}
-const dbPut=async rec=>{const r=await freshRec(rec);return txp(['specimens'],'readwrite',t=>{t.objectStore('specimens').put(r)})};
+// iOS Safari 會把存在 IndexedDB 裡的 Blob 弄壞（再次寫入或久放後讀不出來）。改存成 ArrayBuffer，讀出時再組回 Blob。
+const BLOBK=['audio','cover','coverOrig','photo'];
+async function packRec(r){const o={...r};for(const k of BLOBK){const v=o[k];if(v instanceof Blob){try{o[k]={__ab:await v.arrayBuffer(),type:v.type}}catch(e){console.warn('blob unreadable',k,e)}}}return o}
+function unpackRec(r){if(!r||typeof r!=='object')return r;let o=r;for(const k of BLOBK){const v=r[k];if(v&&v.__ab){if(o===r)o={...r};o[k]=new Blob([v.__ab],{type:v.type||''})}}return o}
+function hasRawBlob(r){return r&&BLOBK.some(k=>r[k] instanceof Blob)}
+
+const dbPut=async rec=>{const r=await packRec(rec);return txp(['specimens'],'readwrite',t=>{t.objectStore('specimens').put(r)})};
 const dbDel=id=>txp(['specimens'],'readwrite',t=>{t.objectStore('specimens').delete(id)});
 const dbCounter=()=>txp(['meta'],'readonly',t=>t.objectStore('meta').get('counter'));
 function dbAdd(rec){return new Promise((res,rej)=>{const t=db.transaction(['specimens','meta'],'readwrite');const m=t.objectStore('meta');const g=m.get('counter');g.onsuccess=()=>{const n=(g.result||0)+1;rec.no=n;m.put(n,'counter');t.objectStore('specimens').add(rec)};t.oncomplete=()=>res(rec);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error||new Error('交易中止'))})}
-async function dbPutMany(recs0,counter){const recs=[];for(const r of recs0)recs.push(await freshRec(r));return txp(['specimens','meta'],'readwrite',t=>{const s=t.objectStore('specimens');recs.forEach(r=>s.put(r));if(counter!=null)t.objectStore('meta').put(counter,'counter')})}
+async function dbPutMany(recs0,counter){const recs=[];for(const r of recs0)recs.push(await packRec(r));return txp(['specimens','meta'],'readwrite',t=>{const s=t.objectStore('specimens');recs.forEach(r=>s.put(r));if(counter!=null)t.objectStore('meta').put(counter,'counter')})}
 let pets=[];
-const dbGetPets=()=>txp(['meta'],'readonly',t=>t.objectStore('meta').get('pets'));
-const dbSavePets=async list0=>{const list=[];for(const p of list0)list.push(await freshRec(p));return txp(['meta'],'readwrite',t=>{t.objectStore('meta').put(list,'pets')})};
+const dbGetPets=async()=>{const p=await txp(['meta'],'readonly',t=>t.objectStore('meta').get('pets'));return Array.isArray(p)?p.map(unpackRec):p};
+const dbSavePets=async list0=>{const list=[];for(const p of list0)list.push(await packRec(p));return txp(['meta'],'readwrite',t=>{t.objectStore('meta').put(list,'pets')})};
 async function reload(){items=await dbAll();
  {const ord=[...items].sort((a,b)=>(a.no||0)-(b.no||0)||(a.createdAt||0)-(b.createdAt||0));const ch=[];ord.forEach((r,i)=>{if(r.no!==i+1){r.no=i+1;ch.push(r)}});
   const cnt=(await dbCounter())||0;if(ch.length||cnt!==ord.length){try{await dbPutMany(ch,ord.length)}catch(e){console.error(e)}}}
@@ -1296,6 +1303,7 @@ function formHTML(p){return `
 <fieldset class="fld"><legend>聲音類型</legend><div class="chips" id="${p}type">${TYPES.map(t=>`<label class="chip"><input type="radio" name="${p}type" value="${t.id}"><span>${t.name}</span></label>`).join('')}</div></fieldset>
 <div class="fld" id="${p}ctypeWrap" hidden><label for="${p}ctype">自訂聲音的名稱</label><input type="text" id="${p}ctype" maxlength="10" autocomplete="off" placeholder="例如：打噴嚏、伸懶腰、碎碎念"></div>
 <div class="fld"><label for="${p}story">一句小故事</label><textarea id="${p}story" maxlength="60" rows="2" placeholder="例如：每天下午三點，牠都會在窗邊睡著。"></textarea></div>
+<div class="pv-slot" id="${p}pvslot" aria-label="卡匣預覽"></div>
 <fieldset class="fld"><legend>卡匣封面</legend><div class="chips" id="${p}cst">${Object.entries(COVER_STYLES).map(([k,v])=>`<label class="chip"><input type="radio" name="${p}cst" value="${k}"><span>${v}</span></label>`).join('')}</div><small class="hint" id="${p}cstHint" hidden>選「照片」前，請先在下方放一張封面照片。</small></fieldset>
 <fieldset class="fld"><legend>波紋配色</legend><div class="chips" id="${p}pal">${Object.entries(PALETTES).map(([k,v])=>`<label class="chip"><input type="radio" name="${p}pal" value="${k}"><span><i class="sw" style="background:linear-gradient(90deg,${v.stops.join(',')})"></i>${v.name}</span></label>`).join('')}<label class="chip"><input type="radio" name="${p}pal" value="custom"><span><i class="sw" id="${p}csw"></i>自訂</span></label></div>
 <div class="cpal" id="${p}cpal" hidden><label class="zoom"><span class="lbl">顏色數量</span><input type="range" min="1" max="6" step="1" id="${p}cn" aria-label="漸層顏色數量"><b id="${p}cnv" class="mono"></b></label><div class="cpicks" id="${p}cpicks"></div><small class="hint">由左到右依序漸變；只選 1 個就是單色。</small></div></fieldset>
@@ -1529,7 +1537,7 @@ function setupEditor(mono,sr,origin){
  const ab=AC().createBuffer(1,ED.s.length,ED.sr);ab.getChannelData(0).set(ED.s);ED.ab=ab;
  [ED.st,ED.en]=autoTrim(ED.s,ED.sr);ED.head=ED.st;
  $('#edOrigin').textContent=origin==='錄音'?'來源：現場錄音':origin==='影片'?'來源：影片':'來源：上傳音檔';
- NF=bindForm($('#newForm'),'n_',{type:pendingType,date:today()},schedPreview);
+ {const pc=$('#pvCart')||document.querySelector('canvas[aria-label="聲音卡匣預覽"]');if(pc&&pc.__undock)pc.__undock()}NF=bindForm($('#newForm'),'n_',{type:pendingType,date:today()},schedPreview);dockPreview($('#pvCart'),$('#n_pvslot'));
  showState('edit');requestAnimationFrame(()=>{drawEditor();updTrim();schedPreview()});
  toast(ED.st>0.05||ED.en<ED.dur-0.05?'已自動框出有聲音的段落，可以再拖曳兩側把手微調':'聲音已載入，可以拖曳兩側把手裁切');
  setTimeout(()=>$('#edPlay').focus({preventScroll:true}),50);scrollTo$('#record');return true
@@ -1562,6 +1570,8 @@ function stopEd(){if(ED.src){const s=ED.src;ED.src=null;try{s.stop()}catch{}}ED.
 function edBtn(){const a=$('#edAll');if(a)a.innerHTML=ic(ED.playing&&ED.full?'pause':'play')+(ED.playing&&ED.full?'停止':'完整試聽');const b=$('#edPlay');if(!b)return;b.innerHTML=ic(ED.playing&&!ED.full?'pause':'play');b.setAttribute('aria-label',ED.playing?'暫停試聽':'試聽保留片段')}
 function resetEditor(){stopEd();Object.assign(ED,{s:null,ab:null,dirty:false,pk:null,pkN:0});showState('idle')}
 let pvTimer=0;function schedPreview(){if(ED.s)drawEditor();clearTimeout(pvTimer);pvTimer=setTimeout(renderPreview,120)}
+function dockPreview(cv,slot){if(!cv||!slot)return;if(cv.__undock)cv.__undock();const home=cv.parentNode,mark=document.createComment('pv');home.insertBefore(mark,cv);const mq=matchMedia('(max-width:760px)');
+ const apply=()=>{if(!slot.isConnected){mq.removeEventListener('change',apply);return}if(mq.matches){slot.appendChild(cv);slot.hidden=false}else{mark.parentNode&&mark.parentNode.insertBefore(cv,mark.nextSibling);slot.hidden=true}};apply();mq.addEventListener('change',apply);cv.__undock=()=>{mq.removeEventListener('change',apply);if(mark.parentNode){mark.parentNode.insertBefore(cv,mark);mark.remove()}cv.__undock=null}}
 async function renderPreview(){if(!ED.s||!NF)return;const EDs=ED.s,EDsr=ED.sr,EDst=ED.st,EDen=ED.en;const d=NF.get();const a=Math.floor(EDst*EDsr),b=Math.floor(EDen*EDsr);const img=d.cover?await safeImg(d.cover,null):null;await fontsReady();if(ED.s!==EDs)return;const cv=$('#pvCard'),pm={no:nextNo,name:d.name||'未命名的聲音',date:d.date,type:d.type,customType:d.customType,story:d.story,pet:d.pet,peaks:calcPeaks(EDs,320,a,b),palette:d.palette,customStops:d.customStops,coverStyle:d.coverStyle,shellColor:d.shellColor||"",cover:d.cover,duration:EDen-EDst};drawCard(cv.getContext('2d'),cv.width,cv.height,pm,{img});const pc=$('#pvCart');drawCartridge(pc.getContext('2d'),pc.width,pc.height,pm,{img:coverStyleOf(pm)==='photo'?img:null})}
 async function saveNew(){
  if(!NF.validate()){toast('請先幫這段聲音取個名字','err');return}
@@ -1783,7 +1793,7 @@ function editDetail(r){stopAll();const sh=$('#detailSheet');
  sh.innerHTML=`<div class="sheet-head"><span class="mono">EDIT · NO. ${pad(r.no)}</span><button class="btn text icon-btn" id="eX" aria-label="取消編輯">${ic('close')}</button></div><div class="sheet-body"><div class="face-col"><div class="seg" hidden role="group" aria-label="預覽方式"><button data-ef="cart" aria-pressed="true">聲音卡匣</button><button data-ef="card" aria-pressed="false">收藏卡</button></div><canvas class="cartcv" id="eCart" width="600" height="680" aria-label="聲音卡匣預覽"></canvas><canvas class="card" id="eCard" width="600" height="800" aria-label="收藏卡預覽" hidden></canvas></div><div><h2 class="d-title" id="dTitle">編輯收藏</h2><div class="form" id="eForm"></div><div class="actions"><button class="btn ghost" id="eCancel">取消</button><button class="btn primary" id="eSave">${ic('check')}儲存修改</button></div></div></div>`;
  const draw=async d=>{const img=d.cover?await safeImg(d.cover,null):null;await fontsReady();const cv=$('#eCard'),m={...cardMeta(r),...d,peaks:r.peaks,duration:r.duration};if(cv)drawCard(cv.getContext('2d'),600,800,m,{img});const cc=$('#eCart');if(cc)drawCartridge(cc.getContext('2d'),600,680,m,{img:coverStyleOf(m)==='photo'?img:null})};
  $$('#detailSheet [data-ef]').forEach(b=>b.onclick=()=>{$$('#detailSheet [data-ef]').forEach(x=>x.setAttribute('aria-pressed',x===b));$('#eCart').hidden=b.dataset.ef!=='cart';$('#eCard').hidden=b.dataset.ef!=='card'});
- const F=bindForm($('#eForm'),'e_',r,draw);draw(F.get());
+ const F=bindForm($('#eForm'),'e_',r,draw);draw(F.get());dockPreview($('#eCart'),$('#e_pvslot'));
  const back=()=>openDetail(r.id,true);$('#eX').onclick=back;$('#eCancel').onclick=back;
  $('#eSave').onclick=async e=>{if(!F.validate())return;const btn=e.currentTarget;setLoading(btn,true,'儲存中…');await F.flush();const d=F.get();const upd={...r,...d,updatedAt:Date.now(),backedUp:false};try{await dbPut(upd)}catch(err){setLoading(btn,false);dbErr(err);return}await reload();renderArchive();renderVault();$('#detail').close();toast(`已儲存「${upd.name||'這段收藏'}」的修改`);setTimeout(()=>{const el=document.querySelector(`[data-id="${r.id}"]`);if(el){el.scrollIntoView({block:'center',behavior:reduced()?'auto':'smooth'});el.classList.add('just-saved');setTimeout(()=>el.classList.remove('just-saved'),2200)}},150)};
  $('#e_name').focus();
