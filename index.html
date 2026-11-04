@@ -946,7 +946,7 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 .shelf.scrollable{-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 40px),transparent)}
 .shelf-more{display:flex;align-items:center}.shelf-more button{width:100%;aspect-ratio:600/680;border:1.5px dashed rgba(47,46,42,.25);border-radius:14px;background:rgba(251,250,246,.6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;font:inherit;color:#302F2B}
 .shelf-more b{font:italic 400 54px "EB Garamond",Georgia,serif;color:#C7886D;line-height:1}.shelf-more span{font-weight:700}.shelf-more small{color:#74736E;font-size:13px}
-.shelf-nav{display:flex;align-items:center;gap:14px;justify-content:center;margin:-18px 0 18px}.shelf-nav[hidden]{display:none}
+.shelf-nav{display:none!important}
 .sn-b{width:40px;height:40px;border-radius:50%;border:1px solid rgba(47,46,42,.18);background:#FBFAF6;cursor:pointer;display:grid;place-items:center;color:#302F2B}.sn-b:disabled{opacity:.3;cursor:default}.sn-b .ic{width:18px;height:18px}
 .sn-bar{position:relative;width:min(240px,40vw);height:3px;border-radius:3px;background:rgba(47,46,42,.12)}.sn-bar i{position:absolute;top:0;height:100%;border-radius:3px;background:#2E5E50;transition:left .1s}
 @media(max-width:860px){.shelf>li{flex-basis:44%}.shelf-nav{margin-top:-8px}}
@@ -2058,7 +2058,7 @@ async function renderVault(){renderHomeTip();
  let persisted=null,usage='—',own=0;for(const r of items){own+=(r.audio&&r.audio.size||0)+(r.cover&&r.cover.size||0)+(r.coverOrig&&r.coverOrig!==r.cover&&r.coverOrig.size||0)}try{if(navigator.storage){if(navigator.storage.persisted)persisted=await navigator.storage.persisted();if(navigator.storage.estimate){const e=await navigator.storage.estimate();usage=((e.usage||0)/1048576).toFixed(1)+' MB'}}}catch{}
  const last=store.get('lsa-lastBackup');
  $('#vH').innerHTML=ic('shield')+(un?`有 ${un} 件收藏僅存本機`:(items.length?'所有收藏都已產生備份檔':'還沒有需要備份的聲音收藏'));
- {const covers=items.filter(r=>r.cover).length,pn=pets.length,pp=pets.filter(p=>p.photo).length,d=new Date(),z=n=>String(n).padStart(2,'0'),fn=`little-sounds-backup-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}.zip`,sz=own<1048576?(own/1024).toFixed(0)+' KB':(own/1048576).toFixed(1)+' MB';
+ {const covers=items.filter(r=>r.cover).length,pn=pets.length,pp=pets.filter(p=>p.photo).length,d=new Date(),z=n=>String(n).padStart(2,'0'),fn=`pet-sound-archive-backup-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}.zip`,sz=own<1048576?(own/1024).toFixed(0)+' KB':(own/1048576).toFixed(1)+' MB';
   $('#vcard').innerHTML=`<div class="vc-head">${ic('box')}<div><b>完整備份檔</b><span class="mono">${items.length?fn:'收藏後就能建立備份'}</span></div><em class="mono">約 ${sz}</em></div>
   <ul class="vc-tree"><li><i>♪</i><b>audio/</b><span>${items.length} 段原始聲音</span></li><li><i>▣</i><b>covers/</b><span>${covers} 張卡匣封面照片</span></li><li><i>✿</i><b>pets/</b><span>${pn} 位毛孩${pp?`・${pp} 張大頭照`:''}</span></li><li><i>≡</i><b>manifest.json</b><span>名字、日期、小故事與標籤</span></li></ul>
   <div class="vc-status ${un?'warn':items.length?'ok':''}"><span>${un?`有 ${un} 件收藏還沒備份`:items.length?'✓ 所有收藏都已備份':'還沒有需要備份的聲音收藏'}</span><span class="mono">${last?'上次備份 '+new Date(+last).toLocaleDateString('zh-TW'):'從未備份'}</span></div>`}
@@ -2075,7 +2075,7 @@ async function doBackup(btn){
    man.specimens.push({id:r.id,no:r.no,name:r.name,pet:petNameOf(r)||'',petId:r.petId||'',type:r.type,customType:r.customType||'',palette:r.palette||'lake',customStops:r.customStops||null,shellColor:r.shellColor||'',coverStyle:r.coverStyle||null,coverOrig:co,coverCrop:r.coverCrop||null,date:r.date,story:r.story||'',tags:r.tags||[],duration:r.duration,peaks:r.peaks,fav:!!r.fav,createdAt:r.createdAt,updatedAt:r.updatedAt,audio:a,audioType:r.audioType||r.audio.type||'audio/wav',cover:cv})}
   files.unshift({name:'manifest.json',data:new TextEncoder().encode(JSON.stringify(man,null,1))});
   const zip=makeZip(files);const d=new Date(),z=n=>String(n).padStart(2,'0');
-  const fname=`little-sounds-backup-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.zip`;
+  const fname=`pet-sound-archive-backup-${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.zip`;
   let file=null,canShare=false;try{file=new File([zip],fname,{type:'application/zip'});canShare=!!(navigator.canShare&&navigator.canShare({files:[file]}))}catch{}
   const mb=(zip.size/1048576).toFixed(1);
   const ch=await ask('備份檔準備好了',canShare?`共 ${items.length} 件、${mb} MB。建議選「存到雲端」，再挑 Google 雲端硬碟或 iCloud，換手機也找得回來。`:`共 ${items.length} 件、${mb} MB。下載後，請把檔案拖進 Google 雲端硬碟（或其他雲端資料夾）。`,
