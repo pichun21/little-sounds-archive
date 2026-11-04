@@ -1,7 +1,7 @@
 /* 毛孩聲音收藏館 · offline support
    網頁本體：有網路時先抓最新版（離線才用暫存），所以更新會立刻生效。
    字型與圖示：先用暫存，背景再更新。你的錄音不經過這裡，一直只存在裝置的資料庫。 */
-const VER='psa-v1';
+const VER='psa-v12';
 const CORE=['./','./index.html','./manifest.webmanifest','./favicon.png','./apple-touch-icon.png','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(VER).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VER).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
