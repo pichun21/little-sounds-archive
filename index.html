@@ -939,6 +939,18 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 .prow input[type=date]{max-width:100%;min-width:0;width:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none}.prow .pf{min-width:0}.prow .pf label{min-width:0}
 .e-audio{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 14px;border:1px solid rgba(47,46,42,.14);border-radius:12px;background:#FBFAF6;margin:0 0 14px}.e-audio .btn{flex:none}
 .repl-banner{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:rgba(199,136,109,.14);border:1px solid rgba(199,136,109,.4);color:#7A4630;border-radius:10px;padding:10px 14px;margin:0 0 14px;font-size:14px}
+.rg-years{display:flex;flex-wrap:nowrap;gap:4px;align-items:center;margin:0 0 14px}.rg-ychips{display:flex;gap:6px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:none;padding:2px}.rg-ychips::-webkit-scrollbar{display:none}.rg-ychips .pchip{flex:none}.rg-years .icon-btn{flex:none}.rg-years .icon-btn{width:36px;height:36px}.rg-years .icon-btn:disabled{opacity:.25}
+.shelf{display:flex!important;overflow-x:auto;overflow-y:visible;scroll-snap-type:x proximity;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-left:6px!important;padding-right:6px!important}
+.shelf::-webkit-scrollbar{display:none}.shelf.dragging{scroll-snap-type:none;cursor:grabbing}.shelf.dragging .cart{pointer-events:none}
+.shelf>li{flex:0 0 calc((100% - 3 * clamp(14px,3vw,36px)) / 4);scroll-snap-align:start;min-width:0}
+.shelf.scrollable{-webkit-mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,#000 0,#000 calc(100% - 40px),transparent)}
+.shelf-more{display:flex;align-items:center}.shelf-more button{width:100%;aspect-ratio:600/680;border:1.5px dashed rgba(47,46,42,.25);border-radius:14px;background:rgba(251,250,246,.6);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;font:inherit;color:#302F2B}
+.shelf-more b{font:italic 400 54px "EB Garamond",Georgia,serif;color:#C7886D;line-height:1}.shelf-more span{font-weight:700}.shelf-more small{color:#74736E;font-size:13px}
+.shelf-nav{display:flex;align-items:center;gap:14px;justify-content:center;margin:-18px 0 18px}.shelf-nav[hidden]{display:none}
+.sn-b{width:40px;height:40px;border-radius:50%;border:1px solid rgba(47,46,42,.18);background:#FBFAF6;cursor:pointer;display:grid;place-items:center;color:#302F2B}.sn-b:disabled{opacity:.3;cursor:default}.sn-b .ic{width:18px;height:18px}
+.sn-bar{position:relative;width:min(240px,40vw);height:3px;border-radius:3px;background:rgba(47,46,42,.12)}.sn-bar i{position:absolute;top:0;height:100%;border-radius:3px;background:#2E5E50;transition:left .1s}
+@media(max-width:860px){.shelf>li{flex-basis:44%}.shelf-nav{margin-top:-8px}}
+@media(max-width:340px){.shelf>li{flex-basis:70%}}
 </style>
 </head>
 <body>
@@ -1644,7 +1656,7 @@ function renderPetBar(){const el=$('#petbar');if(!el)return;if(!pets.length&&!it
  $$('[data-pf]',el).forEach(b=>b.onclick=()=>{petFilter=b.dataset.pf;renderArchive()});$('#petMgr').onclick=openPetManager;$('#collBtn').onclick=openCollage;const c2=$('#collBtn2');if(c2){c2.hidden=items.length<2;c2.onclick=openCollage}}
 function openPetManager(){stopAll();lastFocus=document.activeElement;const sh=$('#detailSheet');
  const row=p=>`<li class="prow" data-id="${p.id}"><label class="pph" title="更換照片">${p.photo?'':`<span>${esc(p.name.slice(0,1))}</span>`}<input type="file" accept="image/*" class="sr"></label>
-  <div class="pf"><label><span class="lbl">名字</span><input type="text" maxlength="20" value="${esc(p.name)}" data-k="name"></label><label><span class="lbl">生日（可不填）</span><input type="date" value="${esc(p.birthday||'')}" data-k="birthday"></label><label class="pstamp"><span class="lbl">館藏印章</span><span class="row"><select data-k="stamp"><option value="">不蓋印章</option>${STAMPS.map(x=>`<option value="${x[0]}" ${p.stamp===x[0]?'selected':''}>${x[1]}</option>`).join('')}</select><canvas class="stamp-pv" width="96" height="96" aria-hidden="true"></canvas></span></label></div>
+  <div class="pf"><label><span class="lbl">名字</span><input type="text" maxlength="20" value="${esc(p.name)}" data-k="name"></label><label><span class="lbl">生日（可不填）</span><input type="date" value="${esc(p.birthday||'')}" data-k="birthday"></label></div>
   <div class="pact"><span class="hint">${items.filter(r=>r.petId===p.id).length} 件收藏</span><button class="btn ghost sm danger" data-del>${ic('trash')}移除</button></div></li>`;
  const draw=()=>{sh.innerHTML=`<div class="sheet-head"><span class="mono">PETS</span><button class="btn text icon-btn" id="pmX" aria-label="關閉">${ic('close')}</button></div>
   <div class="pm"><h2 class="d-title" id="dTitle">管理毛孩</h2><p class="hint">填上生日，時光軸就會標出每段聲音錄下時牠幾歲。</p>
@@ -1670,7 +1682,7 @@ async function squarePhoto(file){const img=await loadImg(file);const S=360,c=doc
 
 /* ---------- 02 sound rings ---------- */
 const SHELLS=[['','跟著波紋'],['#cfcdc2','米灰'],['#c3cfc2','鼠尾草'],['#e3dbc0','奶油'],['#b8c6d4','霧藍'],['#cec3d6','薰衣草'],['#e2c9bf','奶茶粉']];
-const RG={id:null,raf:0,pet:null};const ARC={n:12,step:12,key:''};
+const RG={id:null,raf:0,pet:null,year:null};const ARC={n:12,step:12,key:''};
 function ringGroups(list){const m=new Map();list.forEach(r=>{const k=r.petId||'';if(!m.has(k))m.set(k,[]);m.get(k).push(r)});
  return [...m.entries()].map(([k,a])=>({pet:petById(k)||null,key:k,list:a.sort((x,y)=>(x.date||'').localeCompare(y.date||'')||x.no-y.no)})).sort((a,b)=>b.list.length-a.list.length)}
 function ringsOf(g){if(g.list.length<=36)return g.list.map(r=>[r]);const m=[];g.list.forEach(r=>{const y=(r.date||'').slice(0,4);const L=m[m.length-1];if(L&&L.y===y)L.push(r);else{const a=[r];a.y=y;m.push(a)}});return m}
@@ -1701,10 +1713,15 @@ function drawRings(c,W,g,o={}){const RS=ringsOf(g),n=RS.length,{R0,gap,rad}=ring
 function ringHit(g,W,x,y){const RS=ringsOf(g),{R0,gap}=ringGeom(W,RS.length),d=Math.hypot(x,y),k=Math.floor((d-R0)/gap);if(k<0||k>=RS.length)return null;const arr=RS[k];let t=(Math.atan2(y,x)+Math.PI/2)/(2*Math.PI);if(t<0)t+=1;if(arr.length>1){t=(t-.045)/.91;if(t<0||t>=1)return null}return{k,r:arr[Math.min(arr.length-1,Math.floor(t*arr.length))],year:arr.length>1?arr.y:null}}
 function renderRings(body,list){
  const groups=ringGroups(list),single=groups.length===1||petFilter!=='all';
- const g0=groups.find(g=>g.key===RG.pet)||groups[0];RG.pet=g0.key;
- const head=`<div class="tl-head"><p class="tl-title">${g0.pet?`${esc(g0.pet.name)}的聲音年輪`:'未指定毛孩的聲音年輪'}</p><p class="mono tl-span">${ringsOf(g0).length} 圈${g0.list.length>36?`（一年一圈，共 ${g0.list.length} 段）`:''} · 由內而外，從最早到最新</p><button class="btn ghost sm" id="rgPng">${ic('image')}分享年輪圖</button></div>`;
+ const gAll=groups.find(g=>g.key===RG.pet)||groups[0];RG.pet=gAll.key;
+ const yrs=[...new Set(gAll.list.map(r=>(r.date||'').slice(0,4)).filter(Boolean))].sort();
+ if(RG.year!=='all'&&!yrs.includes(RG.year))RG.year=yrs[yrs.length-1]||'all';
+ const g0=RG.year==='all'?gAll:{...gAll,list:gAll.list.filter(r=>(r.date||'').startsWith(RG.year))};
+ const yi=yrs.indexOf(RG.year);
+ const ybar=yrs.length>1?`<div class="rg-years" role="group" aria-label="切換年度"><button class="btn text icon-btn" data-ry="${yi>0?yrs[yi-1]:''}" ${yi>0?'':'disabled'} aria-label="上一年">${ic('left')}</button><div class="rg-ychips">${yrs.map(y=>`<button class="pchip" data-ry="${y}" aria-pressed="${RG.year===y}">${y}<small>${gAll.list.filter(r=>(r.date||'').startsWith(y)).length}</small></button>`).join('')}<button class="pchip" data-ry="all" aria-pressed="${RG.year==='all'}">全部年度</button></div><button class="btn text icon-btn" data-ry="${yi>=0&&yi<yrs.length-1?yrs[yi+1]:''}" ${yi>=0&&yi<yrs.length-1?'':'disabled'} aria-label="下一年">${ic('right')}</button></div>`:'';
+ const head=`<div class="tl-head"><p class="tl-title">${g0.pet?`${esc(g0.pet.name)}的聲音年輪`:'未指定毛孩的聲音年輪'}${RG.year&&RG.year!=='all'?` · ${RG.year}`:''}</p><p class="mono tl-span">${ringsOf(g0).length} 圈${g0.list.length>36?`（一年一圈，共 ${g0.list.length} 段）`:''} · 由內而外，從最早到最新</p><button class="btn ghost sm" id="rgPng">${ic('image')}分享年輪圖</button></div>`;
  const pick=groups.length>1&&!single?`<div class="rg-pick" role="group" aria-label="選擇毛孩">${groups.map(g=>`<button class="pchip" data-rg="${g.key}" aria-pressed="${g.key===g0.key}">${esc(g.pet?g.pet.name:'未指定')}<small>${g.list.length}</small></button>`).join('')}</div>`:'';
- body.innerHTML=head+pick+`<div class="rg"><div class="rg-disc"><canvas id="rgCv" aria-hidden="true"></canvas><p class="rg-tip" id="rgTip">點任一圈播放；點中間可以換照片</p><button class="btn ghost sm rg-cbtn" id="rgCentre">${ic('image')}${g0.pet?'更換中間照片':'指定毛孩'}</button></div>
+ body.innerHTML=head+pick+ybar+`<div class="rg"><div class="rg-disc"><canvas id="rgCv" aria-hidden="true"></canvas><p class="rg-tip" id="rgTip">點任一圈播放；點中間可以換照片</p><button class="btn ghost sm rg-cbtn" id="rgCentre">${ic('image')}${g0.pet?'更換中間照片':'指定毛孩'}</button></div>
  <ol class="rg-list">${[...g0.list].reverse().map(r=>{const k=g0.list.indexOf(r),age=g0.pet&&ageAt(g0.pet.birthday,r.date);return `<li><button class="rg-row" data-rp="${r.id}"><span class="rg-k mono">${String(k+1).padStart(2,'0')}</span><span class="rg-sw" style="background:linear-gradient(90deg,${palOf(r).stops.join(',')})"></span><span class="rg-t"><b>${esc(r.name)}</b><small>${(r.date||'').replaceAll('-','.')}${age?`・${age}`:''}</small></span>${ic('play')}</button></li>`}).join('')}</ol></div>
  ${!g0.pet?`<p class="hint rg-grow">這些錄音還沒指定是哪一位毛孩。點年輪中間或下方按鈕選好毛孩，就能換上牠的照片。</p>`:(g0.pet&&!g0.pet.photo?`<p class="hint rg-grow">點年輪中間，幫${esc(g0.pet.name)}放一張大頭照。</p>`:'')}${g0.list.length<4?`<p class="hint rg-grow">才 ${g0.list.length} 圈，虛線是之後會長出來的位置。每多收藏一段聲音，年輪就多一圈。</p>`:''}`;
  const cv=$('#rgCv'),photo={im:null};
@@ -1723,12 +1740,12 @@ function renderRings(body,list){
   const pn=petById(pid).name,upd=g0.list.map(r=>({...r,petId:pid,pet:pn,updatedAt:Date.now()}));await dbPutMany(upd,null);await reload();RG.pet=pid;toast(`已歸到${pn}名下，再點一次中間可以放照片`);renderArchive()};
  cv.addEventListener('pointerdown',e=>{const rc=cv.getBoundingClientRect(),W=rc.width,x=e.clientX-rc.left-W/2,y=e.clientY-rc.top-W/2,d=Math.hypot(x,y),{R0}=ringGeom(W,ringsOf(g0).length);if(d<R0*.82){centre();return}const h=ringHit(g0,W,x,y);if(h)play(h.r)});
  cv.addEventListener('pointermove',e=>{const rc=cv.getBoundingClientRect(),W=rc.width,x=e.clientX-rc.left-W/2,y=e.clientY-rc.top-W/2,d=Math.hypot(x,y);const inC=d<ringGeom(W,ringsOf(g0).length).R0*.82,h=inC?null:ringHit(g0,W,x,y);cv.style.cursor=inC||h?'pointer':'default';const t=$('#rgTip');if(t&&PL.audio.paused)t.textContent=inC?(g0.pet?`點一下更換${g0.pet.name}的照片`:'點一下指定這些錄音是哪一位毛孩'):h?`${h.year?h.year+' 年':`第 ${h.k+1} 圈`}：${h.r.name}（${(h.r.date||'').replaceAll('-','.')}）`:'點任一圈，就會播放那一段聲音'});
- body.onclick=e=>{const b=e.target.closest('[data-rp]');if(b){const r=items.find(x=>x.id===b.dataset.rp);if(r)play(r);return}const p=e.target.closest('[data-rg]');if(p){RG.pet=p.dataset.rg;RG.id=null;stopAll();renderArchive()}};
+ body.onclick=e=>{const b=e.target.closest('[data-rp]');if(b){const r=items.find(x=>x.id===b.dataset.rp);if(r)play(r);return}const yb=e.target.closest('[data-ry]');if(yb&&yb.dataset.ry){RG.year=yb.dataset.ry;RG.id=null;stopAll();renderArchive();return}const p=e.target.closest('[data-rg]');if(p){RG.pet=p.dataset.rg;RG.year=null;RG.id=null;stopAll();renderArchive()}};
  $('#rgPng').onclick=async()=>{await fontsReady();const W=1600,c=document.createElement('canvas');c.width=c.height=W;const x=c.getContext('2d');paperTex(x,W,W,'#F3EEE2','ring'+(g0.key||''));x.save();x.translate(W*.06,W*.04);x.scale(.88,.88);drawRings(x,W,g0,{photo:photo.im,keep:true});x.restore();
   x.fillStyle='#302F2B';x.textAlign='center';x.font=`700 ${W*.032}px "Noto Serif TC",serif`;x.fillText(`${g0.pet?g0.pet.name+'的':''}聲音年輪${yearSpan(g0.list)?' · '+yearSpan(g0.list):''}`,W/2,W*.955);x.fillStyle='#74736E';x.font=`500 ${W*.014}px "IBM Plex Mono",monospace`;const a=g0.list[0],z=g0.list[g0.list.length-1];x.fillText(`${g0.list.length} RINGS · ${(a.date||'').replaceAll('-','.')} — ${(z.date||'').replaceAll('-','.')} · PET SOUND ARCHIVE`,W/2,W*.98);
   if(LOGO.complete&&LOGO.naturalWidth){const lh=W*.022,lw=lh*LOGO.naturalWidth/LOGO.naturalHeight;x.globalAlpha=.75;x.drawImage(LOGO,W-lw-W*.035,W*.035,lw,lh);x.globalAlpha=1}
-  if(g0.pet&&g0.pet.stamp)drawPetStamp(x,W*.1,W*.1,W*.055,g0.pet);
-  x.textAlign='left';x.fillStyle='#74736E';x.font=`500 ${W*.012}px "IBM Plex Mono",monospace`;x.fillText('NO.'+String(g0.list.length).padStart(3,'0')+' SOUNDS',W*.035,W*.2);
+  drawBrand(x,W*.035,W*.03,W*.05);if(g0.pet&&g0.pet.stamp)drawPetStamp(x,W*.085,W*.84,W*.05,g0.pet);
+  x.textAlign='left';x.fillStyle='#74736E';x.font=`500 ${W*.012}px "IBM Plex Mono",monospace`;x.fillText(String(g0.list.length).padStart(3,'0')+' SOUNDS',W*.035,W*.105);
   c.toBlob(b=>b&&offerFile(b,`${safeName(g0.pet?g0.pet.name:'聲音')}_年輪.png`,'年輪圖做好了','1600×1600 的正方形圖片，可以直接分享到社群或傳給朋友，也適合印出來。'),'image/png')};
  $('#rgCentre').onclick=centre;
  requestAnimationFrame(paint);const ro=new ResizeObserver(()=>paint());ro.observe(cv);
@@ -1831,6 +1848,13 @@ function offerFile(blob,name,title,msg){const d=$('#ask');$('#askT').textContent
  let share=false;try{share=!!(navigator.canShare&&navigator.canShare({files:[file]}))}catch{}
  if(share)mk(ic('upload')+'分享／存到照片','primary',async()=>{try{await navigator.share({files:[file]})}catch(e){if(e.name!=='AbortError')toast('分享失敗：'+e.message,'err')}d.close()});
  d.showModal()}
+/* 品牌標記：腳印 ICON＋毛孩聲音收藏館 */
+const BRAND_IMG=new Image();{const h=document.querySelector('.brand-ic');if(h)BRAND_IMG.src=h.src}
+function drawBrand(x,X,Y,sz,align='left',col='#302F2B'){const ok=BRAND_IMG.complete&&BRAND_IMG.naturalWidth,gap=sz*.32;x.save();x.textBaseline='alphabetic';
+ x.font=`700 ${sz*.5}px "Noto Serif TC",serif`;const t1='毛孩聲音收藏館',w1=x.measureText(t1).width;x.font=`500 ${sz*.2}px "IBM Plex Mono",monospace`;const t2='PET SOUND ARCHIVE',w2=x.measureText(t2).width;
+ const tw=Math.max(w1,w2),total=(ok?sz+gap:0)+tw;let x0=align==='center'?X-total/2:align==='right'?X-total:X;
+ if(ok)x.drawImage(BRAND_IMG,x0,Y,sz,sz);const tx=x0+(ok?sz+gap:0);x.textAlign='left';
+ x.fillStyle=col;x.font=`700 ${sz*.5}px "Noto Serif TC",serif`;x.fillText(t1,tx,Y+sz*.56);x.fillStyle='#8A7A62';x.font=`500 ${sz*.2}px "IBM Plex Mono",monospace`;x.fillText(t2,tx,Y+sz*.9);x.restore()}
 /* ---------- 紙張紋理、館藏標籤框、展覽式命名 ---------- */
 function paperTex(c,W,H,base='#F3EEE2',seed='paper'){const r=seedRnd(seed);c.fillStyle=base;c.fillRect(0,0,W,H);
  const g=c.createRadialGradient(W/2,H*.45,Math.min(W,H)*.2,W/2,H/2,Math.max(W,H)*.75);g.addColorStop(0,'rgba(255,255,255,.35)');g.addColorStop(1,'rgba(120,95,60,.12)');c.fillStyle=g;c.fillRect(0,0,W,H);
@@ -1853,7 +1877,7 @@ async function exportCartPng(r){await fontsReady();const img=r.cover&&coverStyle
  const br=(cx,cy,sx,sy)=>{x.strokeStyle=gold;x.lineWidth=5;x.beginPath();x.moveTo(cx+sx*70,cy);x.lineTo(cx,cy);x.lineTo(cx,cy+sy*70);x.stroke();x.fillStyle=gold;x.beginPath();x.arc(cx+sx*18,cy+sy*18,6,0,7);x.fill()};
  br(m+36,m+36,1,1);br(W-m-36,m+36,-1,1);br(m+36,H-m-36,1,-1);br(W-m-36,H-m-36,-1,-1);
  const pw=640,ph=64,px=(W-pw)/2,py=m+52;x.fillStyle=ink;rrect(x,px,py,pw,ph,6);x.fill();x.strokeStyle=gold;x.lineWidth=2;rrect(x,px+6,py+6,pw-12,ph-12,4);x.stroke();
- x.fillStyle='#F0E4C8';x.textAlign='center';x.textBaseline='middle';x.font='600 22px "IBM Plex Mono",monospace';x.fillText('PET SOUND ARCHIVE  ·  館藏 NO.'+String(r.no||0).padStart(3,'0'),W/2,py+ph/2+1);x.textBaseline='alphabetic';
+ x.fillStyle='#F0E4C8';x.textAlign='center';x.textBaseline='middle';x.font='600 22px "IBM Plex Mono",monospace';x.font='700 24px "Noto Serif TC",serif';x.fillText('毛孩聲音收藏館  ·  館藏 NO.'+String(r.no||0).padStart(3,'0'),W/2,py+ph/2+1);x.textBaseline='alphabetic';
  for(const sx of [px-26,px+pw+26]){x.fillStyle=gold;x.beginPath();x.arc(sx,py+ph/2,7,0,7);x.fill();x.fillStyle=ink;x.beginPath();x.arc(sx,py+ph/2,2.5,0,7);x.fill()}
  const cw=1040,ch=cw*680/600,cc=document.createElement('canvas');cc.width=cw;cc.height=ch;drawCartridge(cc.getContext('2d'),cw,ch,r,{img});
  const cy0=m+170;x.save();x.shadowColor='rgba(60,45,25,.28)';x.shadowBlur=50;x.shadowOffsetY=26;x.drawImage(cc,(W-cw)/2,cy0);x.restore();
@@ -1862,7 +1886,7 @@ async function exportCartPng(r){await fontsReady();const img=r.cover&&coverStyle
  const pn=petNameOf(r),pt=r.petId&&petById(r.petId),age=pt&&ageAt(pt.birthday,r.date);x.fillStyle='#74736E';x.font='400 26px "Noto Sans TC",sans-serif';
  x.fillText([pn&&(pn+(age?'・'+age:'')),(r.date||'').replaceAll('-','.'),typeName(r),fmt(r.duration)].filter(Boolean).join('　·　'),W/2,ty+52);
 
- if(LOGO.complete&&LOGO.naturalWidth){const lh=30,lw=lh*LOGO.naturalWidth/LOGO.naturalHeight;x.globalAlpha=.7;x.drawImage(LOGO,(W-lw)/2,H-m-88,lw,lh);x.globalAlpha=1}
+ if(LOGO.complete&&LOGO.naturalWidth){const lh=30,lw=lh*LOGO.naturalWidth/LOGO.naturalHeight;x.globalAlpha=.7;x.drawImage(LOGO,(W-lw)/2,H-m-62,lw,lh);x.globalAlpha=1}drawBrand(x,W/2,H-m-160,62,'center');
  c.toBlob(b=>{if(!b){toast('圖片製作失敗','err');return}offerFile(b,fileBase(r)+'_館藏卡.png','館藏卡做好了','1400×1800 的直式圖片，附館藏標籤邊框，適合分享到社群。')},'image/png')}
 /* ---------- 聲音特展（沉浸式） ---------- */
 const EXH={list:[],k:-1,tour:false,raf:0};
@@ -1902,7 +1926,7 @@ async function openExhibit(petId,year){stopAll();const pet=petById(petId),list=i
 async function exportExhibit(petId,year){await fontsReady();const pet=petById(petId),list=items.filter(r=>(!petId||r.petId===petId)&&(r.date||'').startsWith(year)).sort((a,b)=>(a.date||'').localeCompare(b.date||''));if(!list.length){toast('這一年還沒有收藏','err');return}
  const who=pet?pet.name:'毛孩',W=1600,H=2200,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');paperTex(x,W,H,'#F1EBDD','ex'+year+petId);
  x.fillStyle='#2E5E50';x.fillRect(0,0,W,14);x.fillRect(0,H-14,W,14);
- x.textAlign='left';x.fillStyle='#6B5A42';x.font='500 24px "IBM Plex Mono",monospace';x.fillText('PET SOUND ARCHIVE  ·  ANNUAL EXHIBITION',100,130);
+ x.textAlign='left';drawBrand(x,100,62,74);x.textAlign='left';x.fillStyle='#6B5A42';x.font='500 20px "IBM Plex Mono",monospace';x.fillText('ANNUAL EXHIBITION',W-100-x.measureText('ANNUAL EXHIBITION').width,112);
  x.fillStyle='#302F2B';x.font='900 112px "Noto Serif TC",serif';x.fillText(`${who}聲音特展`,96,270);
  x.fillStyle='#C7886D';x.font='italic 400 150px "EB Garamond",Georgia,serif';x.textAlign='right';x.fillText(year,W-96,280);x.textAlign='left';
  const span=`${(list[0].date||'').replaceAll('-','.')} — ${(list[list.length-1].date||'').replaceAll('-','.')}`;x.fillStyle='#74736E';x.font='400 30px "Noto Sans TC",sans-serif';x.fillText(`這一年收下了 ${list.length} 段聲音　·　${span}`,100,340);
@@ -2091,7 +2115,7 @@ function stampPath(c,k,R){c.beginPath();
  else if(k==='bone'){const w=R*.6,h=R*.26,b=R*.3;c.rect(-w,-h,2*w,2*h);for(const [x,y] of [[-w,-h],[w,-h],[-w,h],[w,h]]){c.moveTo(x+b,y*1.05);c.arc(x,y*1.05,b,0,7)}}
  else if(k==='ear'){c.moveTo(-R*.82,-R*.2);c.lineTo(-R*.7,-R*1.0);c.lineTo(-R*.25,-R*.62);c.quadraticCurveTo(0,-R*.72,R*.25,-R*.62);c.lineTo(R*.7,-R*1.0);c.lineTo(R*.82,-R*.2);c.quadraticCurveTo(R*.95,R*.85,0,R*.92);c.quadraticCurveTo(-R*.95,R*.85,-R*.82,-R*.2);c.closePath()}
  else{c.ellipse(0,R*.3,R*.55,R*.5,0,0,7);for(const [x,y,rx,ry,a] of [[-.72,-.22,.2,.26,-.4],[-.27,-.68,.2,.27,-.12],[.27,-.68,.2,.27,.12],[.72,-.22,.2,.26,.4]]){c.moveTo(x*R+rx*R,y*R);c.ellipse(x*R,y*R,rx*R,ry*R,a,0,7)}}}
-function drawPetStamp(c,cx,cy,R,pet){const k=pet.stamp||'circle',S=Math.ceil(R*2.8),o=document.createElement('canvas');o.width=o.height=S;const x=o.getContext('2d'),rnd=seedRnd(pet.id+k);
+function drawPetStamp(c,cx,cy,R,pet){return;/* 印章功能已移除 */const k=pet.stamp||'circle',S=Math.ceil(R*2.8),o=document.createElement('canvas');o.width=o.height=S;const x=o.getContext('2d'),rnd=seedRnd(pet.id+k);
  x.translate(S/2,S/2);x.rotate(-.14+rnd()*.1);const ink='#A9452F';x.strokeStyle=ink;x.fillStyle=ink;x.lineJoin='round';
  if(k==='bone'){stampPath(x,k,R);x.fill();x.save();x.globalCompositeOperation='destination-out';x.scale(.86,.7);stampPath(x,k,R);x.fill();x.restore()}else{stampPath(x,k,R);x.lineWidth=Math.max(1,R*.09);x.stroke()}
  if(k==='circle'){x.beginPath();x.arc(0,0,R*.8,0,7);x.lineWidth=Math.max(.6,R*.035);x.stroke()}
@@ -2360,7 +2384,8 @@ const DEMOS=[
 ].map(d=>{const s=synth(d.kind);let p=0;for(let i=0;i<s.length;i++)p=Math.max(p,Math.abs(s[i]));if(p>0)for(let i=0;i<s.length;i++)s[i]*=.85/p;return{...d,demo:true,samples:s,duration:s.length/DEMO_SR,peaks:calcPeaks(s,320)}});
 
 const HERO={list:[],sel:0,src:null,playing:false,t0:0,raf:0,demo:true};
-function heroItems(){if(items.length){const l=[...items].sort((a,b)=>b.no-a.no).slice(0,4);return{list:l,demo:false}}return{list:DEMOS,demo:true}}
+const HERO_MAX=24;
+function heroItems(){if(items.length){const l=[...items].sort((a,b)=>b.no-a.no).slice(0,HERO_MAX);return{list:l,demo:false}}return{list:DEMOS,demo:true}}
 function heroStopDemo(){if(HERO.src){const s=HERO.src;HERO.src=null;try{s.stop()}catch{}}if(HERO.playing&&HERO.demoPlaying){HERO.playing=false;HERO.demoPlaying=false;cancelAnimationFrame(HERO.raf);heroUI()}}
 async function renderHero(){
  const{list,demo}=heroItems();const changed=HERO.demo!==demo||HERO.list.map(x=>x.id+x.updatedAt).join()!==list.map(x=>x.id+x.updatedAt).join();
@@ -2370,8 +2395,14 @@ async function renderHero(){
  if(changed||!$('#shelf').children.length){
   const tilt=[-1.6,1.2,-.6,1.8];
   $('#shelf').innerHTML=list.map((r,k)=>`<li style="--tilt:${tilt[k%4]}deg"><button class="cart" data-k="${k}" aria-pressed="${k===HERO.sel}" aria-label="${demo?'示範卡匣：':''}${esc(r.name)}，${typeName(r)}，${fmt(r.duration)}"><canvas width="600" height="680"></canvas></button></li>`).join('');
+  if(!demo&&items.length>list.length)$('#shelf').insertAdjacentHTML('beforeend',`<li class="shelf-more"><button type="button" id="shelfMore"><b>${items.length-list.length}</b><span>還有 ${items.length-list.length} 件</span><small>到收藏櫃看全部 →</small></button></li>`);
+  {const m=$('#shelfMore');if(m)m.onclick=()=>scrollTo$('#archive')}
   await fontsReady();
-  const cvs=$$('#shelf canvas');for(let k=0;k<list.length;k++){const r=list[k];const img=r.cover&&coverStyleOf(r)==='photo'?await safeImg(r.cover,r.id+':'+r.updatedAt):null;if(cvs[k])drawCartridge(cvs[k].getContext('2d'),600,680,r,{img,demo})}
+  const cvs=$$('#shelf canvas'),drawn=new Set(),draw1=async k=>{if(drawn.has(k)||!cvs[k])return;drawn.add(k);const r=list[k];const img=r.cover&&coverStyleOf(r)==='photo'?await safeImg(r.cover,r.id+':'+r.updatedAt):null;drawCartridge(cvs[k].getContext('2d'),600,680,r,{img,demo})};
+  if(HERO.io)HERO.io.disconnect();
+  if('IntersectionObserver' in window){HERO.io=new IntersectionObserver(es=>es.forEach(en=>{if(en.isIntersecting)draw1(cvs.indexOf(en.target))}),{root:$('#shelf'),rootMargin:'0px 400px'});cvs.forEach(c=>HERO.io.observe(c))}
+  for(let k=0;k<Math.min(5,list.length);k++)await draw1(k);if(!('IntersectionObserver' in window))for(let k=5;k<list.length;k++)await draw1(k);
+  shelfNav()
  }
  heroUI();
 }
@@ -2394,7 +2425,18 @@ function heroPlay(){const r=HERO.list[HERO.sel];if(!r)return;
  else{if(PL.id!==r.id){if(PL.url)URL.revokeObjectURL(PL.url);PL.url=URL.createObjectURL(r.audio);PL.audio.src=PL.url;PL.id=r.id}
   PL.onTick=()=>{if(PL.audio.paused){HERO.playing=false;heroUI()}};PL.audio.currentTime=0;PL.audio.play().then(()=>{HERO.playing=true;HERO.demoPlaying=false;heroUI();loop()}).catch(e=>playErr(e));return}
  heroUI();loop()}
-function heroSelect(k,play){if(k===HERO.sel&&!play)return;const was=HERO.playing;stopAll();HERO.playing=false;HERO.sel=k;heroUI();if(play||was)heroPlay()}
+function shelfNav(){const sh=$('#shelf');if(!sh)return;let w=sh.parentElement.querySelector('.shelf-nav');
+ if(!w){w=document.createElement('div');w.className='shelf-nav';w.innerHTML=`<button type="button" class="sn-b" data-d="-1" aria-label="往左看">${ic('left')}</button><div class="sn-bar"><i></i></div><button type="button" class="sn-b" data-d="1" aria-label="往右看">${ic('right')}</button>`;sh.after(w);
+  w.onclick=e=>{const b=e.target.closest('[data-d]');if(b)sh.scrollBy({left:+b.dataset.d*sh.clientWidth*.8,behavior:reduced()?'auto':'smooth'})};
+  sh.addEventListener('scroll',()=>shelfNav(),{passive:true});
+  // mouse drag to scroll (touch scrolls natively)
+  let d=null;sh.addEventListener('pointerdown',e=>{if(e.pointerType!=='mouse')return;d={x:e.clientX,l:sh.scrollLeft,moved:false}});
+  window.addEventListener('pointermove',e=>{if(!d)return;const dx=e.clientX-d.x;if(Math.abs(dx)>5){d.moved=true;sh.classList.add('dragging')}if(d.moved)sh.scrollLeft=d.l-dx});
+  window.addEventListener('pointerup',()=>{if(d&&d.moved){const stop=ev=>{ev.stopPropagation();ev.preventDefault()};sh.addEventListener('click',stop,{capture:true,once:true});setTimeout(()=>sh.removeEventListener('click',stop,{capture:true}),50)}d=null;sh.classList.remove('dragging')})}
+ const max=sh.scrollWidth-sh.clientWidth,over=max>4;w.hidden=!over;sh.classList.toggle('scrollable',over);
+ if(over){const p=sh.scrollLeft/max;w.querySelector('.sn-bar i').style.cssText=`width:${Math.max(12,sh.clientWidth/sh.scrollWidth*100)}%;left:${p*(100-Math.max(12,sh.clientWidth/sh.scrollWidth*100))}%`;const [a,b]=w.querySelectorAll('.sn-b');a.disabled=sh.scrollLeft<4;b.disabled=sh.scrollLeft>max-4}}
+window.addEventListener('resize',()=>shelfNav());
+function heroSelect(k,play){if(k===HERO.sel&&!play)return;const was=HERO.playing;stopAll();HERO.playing=false;HERO.sel=k;heroUI();{const c=$$('#shelf .cart')[k];if(c)c.scrollIntoView({inline:'nearest',block:'nearest',behavior:reduced()?'auto':'smooth'})}if(play||was)heroPlay()}
 function heroInit(){
  $('#shelf').addEventListener('click',e=>{const b=e.target.closest('.cart');if(!b)return;const k=+b.dataset.k;if(k===HERO.sel)heroPlay();else heroSelect(k,true)});
  $('#shelf').addEventListener('keydown',e=>{const n=HERO.list.length;if(!n)return;const d={ArrowRight:1,ArrowLeft:-1}[e.key];if(!d)return;e.preventDefault();const k=(HERO.sel+d+n)%n;heroSelect(k,false);$$('#shelf .cart')[k].focus()});
