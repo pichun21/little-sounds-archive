@@ -1679,8 +1679,15 @@ async function readBlob(b){try{return await b.arrayBuffer()}catch(e){}
  try{const u=URL.createObjectURL(b);try{const r=await fetch(u);return await r.arrayBuffer()}finally{URL.revokeObjectURL(u)}}catch(e){}
  if(/^image\//.test(b.type||'')){try{const u=URL.createObjectURL(b);const im=await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=u});const c=document.createElement('canvas');c.width=im.naturalWidth;c.height=im.naturalHeight;c.getContext('2d').drawImage(im,0,0);URL.revokeObjectURL(u);const nb=await new Promise(r=>c.toBlob(r,'image/jpeg',.9));return {ab:await nb.arrayBuffer(),type:'image/jpeg'}}catch(e){}}
  return null}
-async function packRec(r){const o={...r};for(const k of BLOBK){const v=o[k];if(v instanceof Blob){const ab=await readBlob(v);if(ab&&ab.ab)o[k]={__ab:ab.ab,type:ab.type};else if(ab)o[k]={__ab:ab,type:v.type};else{console.warn('blob unreadable, dropped',k);o[k]=null;packRec.dropped=(packRec.dropped||0)+1}}}return o}
-function unpackRec(r){if(!r||typeof r!=='object')return r;let o=r;for(const k of BLOBK){const v=r[k];if(v&&v.__ab){if(o===r)o={...r};o[k]=new Blob([v.__ab],{type:v.type||''})}}return o}
+/* Blobs that came out of the database keep a link to their stored bytes, so re-saving a record (backup flag, renumbering,
+   favourite, edits that don't touch the media) never has to read them again. A blob that cannot be read aborts the save
+   instead of being silently dropped, so the copy already in the database stays intact. */
+const PACKED=new WeakMap();
+async function packRec(r){const o={...r};for(const k of BLOBK){const v=o[k];if(v instanceof Blob){const pk=PACKED.get(v);if(pk){o[k]=pk;continue}
+ const ab=await readBlob(v);let packed=null;if(ab&&ab.ab)packed={__ab:ab.ab,type:ab.type};else if(ab)packed={__ab:ab,type:v.type};
+ if(!packed){const e=new Error(k==='audio'?'這段聲音暫時讀不到，這次沒有儲存，原本的資料都還在。請重新整理頁面後再試':'這張照片暫時讀不到，這次沒有儲存，原本的資料都還在。請重新整理頁面後再試');e.keep=true;throw e}
+ PACKED.set(v,packed);o[k]=packed}}return o}
+function unpackRec(r){if(!r||typeof r!=='object')return r;let o=r;for(const k of BLOBK){const v=r[k];if(v&&v.__ab){if(o===r)o={...r};const b=new Blob([v.__ab],{type:v.type||''});PACKED.set(b,v);o[k]=b}}return o}
 function hasRawBlob(r){return r&&BLOBK.some(k=>r[k] instanceof Blob)}
 
 const dbPut=async rec=>{const r=await packRec(rec);return txp(['specimens'],'readwrite',t=>{t.objectStore('specimens').put(r)})};
@@ -2155,7 +2162,7 @@ async function saveNew(){
   const rec={id:uid(),no:0,name:d.name,pet:d.pet,petId:d.petId,type:d.type,customType:d.customType,shellColor:d.shellColor||'',coverStyle:d.coverStyle,palette:d.palette,customStops:d.customStops,date:d.date,story:d.story,tags:d.tags,cover:d.cover,coverOrig:d.coverOrig,coverCrop:d.coverCrop,audio,audioType:audio.type,duration:s.length/ED.sr,peaks:calcPeaks(s,320),fav:false,createdAt:now,updatedAt:now,backedUp:false};
   if(REPL){const old=REPL.rec,upd={...old,...rec,id:old.id,no:old.no,createdAt:old.createdAt,fav:old.fav,updatedAt:now};try{await dbPut(upd)}catch(e){dbErr(e);return}
    await reload();resetEditor();renderArchive();renderVault();toast(`已替換「${upd.name}」的聲音`);scrollTo$('#archive');setTimeout(()=>{const el=$(`[data-id="${upd.id}"]`);if(el){el.classList.add('just-saved');setTimeout(()=>el.classList.remove('just-saved'),2200)}},350);return}
-  try{await dbAdd(rec)}catch(e){dbErr(e);return}
+  try{const pr=await packRec(rec);await dbAdd(pr);rec.no=pr.no}catch(e){dbErr(e);return}
   const first=items.length===0;await reload();resetEditor();renderArchive();renderVault();if(first)askPersist();
   toast(`已收進 No.${pad(rec.no)} 抽屜。目前只存在這台裝置，記得到保險箱備份`);setTimeout(saveReminder,2600);
   scrollTo$('#archive');setTimeout(()=>{const el=$(`.drawer[data-id="${rec.id}"]`);if(el)el.classList.add('fresh')},350);
@@ -2706,16 +2713,22 @@ async function doRestore(file){
    recs.push({shellColor:/^#[0-9a-f]{6}$/i.test(s.shellColor||'')?s.shellColor:'',id:s.id,no:+s.no||0,name:String(s.name).slice(0,40),pet:String(s.pet||'').slice(0,20),petId:typeof s.petId==='string'?s.petId:'',type:TMAP[s.type]?s.type:'custom',customType:String(s.customType||'').slice(0,10),palette:(PALETTES[s.palette]||s.palette==='custom')?s.palette:'lake',customStops:cleanStops(s.customStops),coverStyle:COVER_STYLES[s.coverStyle]?s.coverStyle:null,coverOrig:s.coverOrig&&files.get(s.coverOrig)?new Blob([files.get(s.coverOrig)],{type:'image/jpeg'}):cvB,coverCrop:s.coverCrop&&typeof s.coverCrop==='object'?{z:+s.coverCrop.z||1,cx:+s.coverCrop.cx||.5,cy:+s.coverCrop.cy||.5}:null,date:s.date||today(),story:String(s.story||'').slice(0,60),tags:Array.isArray(s.tags)?s.tags.filter(t=>typeof t==='string'):[],cover:s.cover&&files.get(s.cover)?new Blob([files.get(s.cover)],{type:'image/jpeg'}):null,audio,audioType:audio.type,duration,peaks,fav:!!s.fav,createdAt:+s.createdAt||Date.now(),updatedAt:+s.updatedAt||Date.now(),backedUp:true})}
   if(!recs.length){toast('備份檔裡沒有可以還原的收藏','err');return}
   const exist=new Map(items.map(i=>[i.id,i]));const dup=recs.filter(r=>exist.has(r.id));let mode='skip';
-  if(dup.length){mode=await ask('有重複的收藏',`備份中有 ${dup.length} 件收藏已經在收藏櫃裡（共 ${recs.length} 件）。要怎麼處理重複的部分？`,[{v:null,t:'取消還原'},{v:'replace',t:'以備份版本取代'},{v:'skip',t:'保留現有，只加入新的'}]);if(!mode)return}
-  const toWrite=recs.filter(r=>!exist.has(r.id)||mode==='replace');
+  if(dup.length){mode=await ask('有重複的收藏',`備份中有 ${dup.length} 件收藏已經在收藏櫃裡（共 ${recs.length} 件）。要怎麼處理重複的部分？`,[{v:null,t:'取消還原'},{v:'replace',t:'以備份版本取代'},{v:'fill',t:'補回缺少的照片與聲音'},{v:'skip',t:'保留現有，只加入新的'}]);if(!mode)return}
+  let filled=0;
+  const fillRecs=[];
+  if(mode==='fill'){for(let i=0;i<recs.length;i++){const b=recs[i],ex=exist.get(b.id);if(!ex)continue;const o={...ex};let ch=false;
+    if(!ex.cover&&b.cover){o.cover=b.cover;o.coverOrig=b.coverOrig||b.cover;o.coverCrop=b.coverCrop||ex.coverCrop||null;if(!o.coverStyle||o.coverStyle!=='photo')o.coverStyle=b.coverStyle||'photo';ch=true;filled++}
+    if((!ex.audio||!ex.audio.size)&&b.audio){o.audio=b.audio;o.audioType=b.audioType;o.peaks=b.peaks;o.duration=b.duration;ch=true;filled++}
+    if(ch)fillRecs.push({...o,updatedAt:Date.now()})}}
+  const toWrite=mode==='fill'?[...recs.filter(r=>!exist.has(r.id)),...fillRecs]:recs.filter(r=>!exist.has(r.id)||mode==='replace');
   if(!toWrite.length){toast('備份中的收藏都已經在收藏櫃裡了');return}
   const used=new Map(items.map(i=>[i.no,i.id]));let maxNo=Math.max(nextNo-1,+m.counter||0,...items.map(i=>i.no),...recs.map(r=>r.no));
   for(const r of toWrite){if(exist.has(r.id))r.no=exist.get(r.id).no;else if(!r.no||(used.has(r.no)&&used.get(r.no)!==r.id))r.no=++maxNo;used.set(r.no,r.id)}
-  if(Array.isArray(m.pets)){const have=new Set(pets.map(p=>p.id));const add=m.pets.filter(p=>p&&typeof p.id==='string'&&p.name&&!have.has(p.id)).map(p=>({id:p.id,name:String(p.name).slice(0,20),birthday:typeof p.birthday==='string'?p.birthday:'',stamp:STAMPS.some(x=>x[0]===p.stamp)?p.stamp:'',createdAt:+p.createdAt||Date.now(),photo:p.photo&&files.get(p.photo)?new Blob([files.get(p.photo)],{type:'image/jpeg'}):null}));if(add.length){pets=[...pets,...add];try{await dbSavePets(pets)}catch(e){dbErr(e);return}}}
+  if(Array.isArray(m.pets)){const have=new Set(pets.map(p=>p.id));const add=m.pets.filter(p=>p&&typeof p.id==='string'&&p.name&&!have.has(p.id)).map(p=>({id:p.id,name:String(p.name).slice(0,20),birthday:typeof p.birthday==='string'?p.birthday:'',stamp:STAMPS.some(x=>x[0]===p.stamp)?p.stamp:'',createdAt:+p.createdAt||Date.now(),photo:p.photo&&files.get(p.photo)?new Blob([files.get(p.photo)],{type:'image/jpeg'}):null}));let pf=false;if(mode==='fill'){const bp=new Map(m.pets.filter(p=>p&&p.id&&p.photo&&files.get(p.photo)).map(p=>[p.id,p]));pets=pets.map(p=>{const q=bp.get(p.id);if(!p.photo&&q){pf=true;return{...p,photo:new Blob([files.get(q.photo)],{type:'image/jpeg'})}}return p})}if(add.length||pf){pets=[...pets,...add];try{await dbSavePets(pets)}catch(e){dbErr(e);return}}}
   const known=new Set(pets.map(p=>p.id));toWrite.forEach(r=>{if(r.petId&&!known.has(r.petId))r.petId=''});
   try{await dbPutMany(toWrite,maxNo)}catch(e){dbErr(e);return}
   await reload();await migratePets();renderArchive();renderVault();askPersist();
-  toast(`已還原 ${toWrite.length} 件收藏${bad?`，有 ${bad} 件資料不完整已略過`:''}`);scrollTo$('#archive');
+  toast(mode==='fill'?`已補回 ${filled} 項照片或聲音${toWrite.length-filled>0?`，並加入新的收藏`:''}`:`已還原 ${toWrite.length} 件收藏${bad?`，有 ${bad} 件資料不完整已略過`:''}`);scrollTo$('#archive');
  }finally{lbl.classList.remove('loading')}
 }
 
