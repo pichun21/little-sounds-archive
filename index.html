@@ -1258,7 +1258,7 @@ async function webcodecsEncode(s,sr,codec){if(typeof AudioEncoder==='undefined'|
  if(codec==='aac'&&!desc){const fi={44100:4,48000:3}[cfg.sampleRate];desc=new Uint8Array([(2<<3)|(fi>>1),((fi&1)<<7)|(1<<3)])}
  return m4aMux({codec,sr:cfg.sampleRate,ch:1,desc,frames,durs})}
 async function encodeAudio(s,sr){const want=s.length/sr;
- for(const codec of ['aac','opus']){try{const b=await webcodecsEncode(s,sr,codec);if(!b)continue;const buf=await decodeBlob(b);if(Math.abs(buf.duration-want)<.35)return b;console.warn('encoded but duration off',codec,buf.duration,want)}catch(e){console.warn('encode failed',codec,e)}}
+ for(const codec of ['aac']){try{const b=await webcodecsEncode(s,sr,codec);if(!b)continue;const buf=await decodeBlob(b);if(Math.abs(buf.duration-want)<.35)return b;console.warn('encoded but duration off',codec,buf.duration,want)}catch(e){console.warn('encode failed',codec,e)}}
  return encodeWav(s,sr)}
 const audioExt=b=>/mp4|m4a|aac/.test((b&&b.type)||'')?'m4a':'wav';
 
