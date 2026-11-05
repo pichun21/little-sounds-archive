@@ -1581,6 +1581,11 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
             </div>
             <div class="vdest"><span class="mono">建議存到</span><span>Google 雲端硬碟</span><span>iCloud 雲碟</span><span>另一台裝置</span></div>
             <p class="vmove"><a href="#move">要換手機或換電腦？看搬家教學 →</a></p>
+            <details class="vinfo vgd"><summary>備份在 Google 雲端硬碟，手機選不到？</summary>
+              <p><b>iPhone：</b>先安裝 Google 雲端硬碟 App 並登入。按「從備份還原」後，在檔案選擇畫面點左上「瀏覽」，再點右上「⋯」→「編輯」，打開「Google 雲端硬碟」，按完成。之後就能直接從雲端硬碟選備份檔。</p>
+              <p><b>另一個方法：</b>在 Google 雲端硬碟 App 找到備份檔，點「⋯」→「開啟方式」→「儲存到檔案」，存到「我的 iPhone」，再回來這裡選。</p>
+              <p><b>Android：</b>按「從備份還原」後，點左上「☰」選單，就能看到「雲端硬碟」。</p>
+            </details>
             <div class="vstat vmini" id="vstat"></div>
           <details class="vinfo">
             <summary>聲音存在哪裡？什麼情況可能消失？</summary>
@@ -2624,7 +2629,7 @@ const INFO={
 <li><b>在舊裝置建立備份</b>打開收藏館，到「保險箱」按「建立完整備份」。你會得到一個 pet-sound-archive-backup-日期.zip，裡面有全部的聲音、照片和文字。</li>
 <li><b>把備份檔送到新裝置</b>存到 Google 雲端硬碟或 iCloud 雲碟最保險。也可以用 AirDrop、Email，或 LINE 傳給自己（LINE 的檔案有保存期限，請盡快下載）。</li>
 <li><b>在新裝置打開網站</b>前往 petsound.needtodeco.com，用你之後會常用的那個瀏覽器打開。</li>
-<li><b>從備份還原</b>到「保險箱」按「從備份還原」，選擇剛才的 ZIP 檔。iPhone 會開啟「檔案」App，可以從 iCloud 雲碟或 Google 雲端硬碟挑選。</li>
+<li><b>從備份還原</b>到「保險箱」按「從備份還原」，選擇剛才的 ZIP 檔。iPhone 會開啟「檔案」App：要從 Google 雲端硬碟選，需先安裝 Google 雲端硬碟 App，並在「瀏覽 → ⋯ → 編輯」裡把它打開。</li>
 <li><b>確認都搬過來了</b>對一下收藏數量，隨意點幾段聽聽看。確認沒問題後，舊裝置的收藏再刪除也不遲。</li>
 </ol>
 <div class="info-warn"><b>iPhone 要特別注意：</b>「加入主畫面」的收藏館，和 Safari 裡打開的收藏館，資料是分開存的。請在你平常使用的那一個裡還原，不要兩邊各存一半。</div>
@@ -3085,7 +3090,7 @@ async function renderHero(){
  heroUI();
 }
 function heroHeard(){try{return localStorage.getItem('lsa-heard')==='1'}catch{return false}}
-const APP_VERSION='2026.11.05-1';
+const APP_VERSION='2026.11.05-3';
 function heroOpenLbl(){const b=$('#heroOpen');if(!b)return;const n=items.length;b.innerHTML=ic('archive')+'打開收藏'+(n?`<span class="cnt"> · ${n}</span>`:'');b.setAttribute('aria-label',n?`打開收藏，共 ${n} 件`:'打開收藏')}
 function heroWave(p){const cv=$('#nowWave'),r=HERO.list[HERO.sel];if(!cv||!r)return;const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;const dpr=Math.min(2,window.devicePixelRatio||1);
  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
