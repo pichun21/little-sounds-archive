@@ -1498,6 +1498,20 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 .fgrp-n{width:22px;height:22px;flex:none;border-radius:50%;display:grid;place-items:center;background:#2E5E50;color:#F7F3EA;font:600 12px/1 "IBM Plex Mono",monospace;align-self:center}
 .fgrp-t{margin:0;font:700 16px/1.3 "Noto Serif TC",serif;color:#22302B;letter-spacing:.06em}
 .fgrp-s{font-size:12.5px;color:#5B5A54}
+.toast div.act{display:flex;align-items:center;justify-content:space-between;gap:12px;pointer-events:auto}
+.toast div.act button{flex:none;background:#F2D98D;color:#22302B;border:none;border-radius:999px;padding:7px 14px;font:700 14px/1 inherit;cursor:pointer;min-height:36px}
+.trash-link{display:inline-flex;align-items:center;gap:6px;background:none;border:none;padding:6px 2px;min-height:36px;font:inherit;font-size:13px;color:#8F3A2A;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.trash-link .ic{width:15px;height:15px}
+.vtrash{margin:14px 0 0;font-size:14px;color:#4F4E48;background:#FBF1E6;border-radius:10px;padding:8px 12px}
+.trash-list{list-style:none;margin:16px 0 0!important;padding:0!important;display:grid;gap:10px}
+.trash-list li{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:14px;align-items:center;padding:10px 12px;border:1px solid rgba(110,96,72,.22);border-radius:12px;background:#FBF8F0}
+.trash-list canvas{width:58px;height:auto;display:block}
+.tr-txt{display:flex;flex-direction:column;gap:2px;min-width:0}.tr-txt b{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tr-txt span{font-size:13px;color:#5B5A54}.tr-txt em{font-style:normal;font-size:12.5px;color:#8F3A2A}
+.tr-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.tr-all{display:flex;gap:10px;justify-content:flex-end;margin-top:16px!important}
+.tr-empty{color:#5B5A54;margin-top:16px!important}
+@media (max-width:560px){.trash-list li{grid-template-columns:48px minmax(0,1fr)}.trash-list canvas{width:48px}.tr-btns{grid-column:1/-1;justify-content:flex-start}}
 </style>
 </head>
 <body>
@@ -1645,6 +1659,7 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
               <p><b>另一個方法：</b>在 Google 雲端硬碟 App 找到備份檔，點「⋯」→「開啟方式」→「儲存到檔案」，存到「我的 iPhone」，再回來這裡選。</p>
               <p><b>Android：</b>按「從備份還原」後，點左上「☰」選單，就能看到「雲端硬碟」。</p>
             </details>
+            <p class="vtrash" id="vTrash" hidden></p>
             <div class="vstat vmini" id="vstat"></div>
           <details class="vinfo">
             <summary>聲音存在哪裡？什麼情況可能消失？</summary>
@@ -1734,7 +1749,7 @@ const fileBase=r=>`No${pad(r.no)}_${safeName(r.name)}`;
 let db=null, items=[], nextNo=1;
 function openDB(){return new Promise((res,rej)=>{if(!window.indexedDB)return rej(new Error('no-idb'));const r=indexedDB.open('little-sounds-archive',1);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('specimens'))d.createObjectStore('specimens',{keyPath:'id'});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta')};r.onsuccess=()=>{db=r.result;res()};r.onerror=()=>rej(r.error);r.onblocked=()=>rej(new Error('blocked'))})}
 function txp(stores,mode,fn){return new Promise((res,rej)=>{let t,r;try{t=db.transaction(stores,mode);r=fn(t)}catch(e){return rej(e)}t.oncomplete=()=>res(r&&typeof r==='object'&&'result' in r?r.result:r);t.onerror=()=>rej(t.error);t.onabort=()=>rej(t.error||new Error('交易中止'))})}
-const dbAllRaw=()=>txp(['specimens'],'readonly',t=>t.objectStore('specimens').getAll());const dbAll=async()=>{const raw=await dbAllRaw();const old=raw.filter(hasRawBlob);if(old.length&&!dbAll.mig){dbAll.mig=1;setTimeout(async()=>{try{await dbPutMany(old,null);if(typeof imgCache!=='undefined'&&imgCache.clear)imgCache.clear();await reload();renderArchive()}catch(e){console.error(e)}},400)}return raw.map(unpackRec)};
+const dbAllRaw=()=>txp(['specimens'],'readonly',t=>t.objectStore('specimens').getAll());const dbAll=async()=>{const raw=await dbAllRaw();const old=raw.filter(hasRawBlob);if(old.length&&!dbAll.mig){dbAll.mig=1;setTimeout(async()=>{try{await dbPutMany(old,null);if(typeof imgCache!=='undefined'&&imgCache.clear)imgCache.clear();await reload();renderArchive()}catch(e){console.error(e)}},400)}TRASH=raw.filter(r=>r&&r.deletedAt).map(unpackRec);return raw.filter(r=>!(r&&r.deletedAt)).map(unpackRec)};let TRASH=[];
 // iOS Safari: a Blob read back from IndexedDB can break when it is written again. Copy every Blob into fresh bytes before each write.
 // iOS Safari 會把存在 IndexedDB 裡的 Blob 弄壞（再次寫入或久放後讀不出來）。改存成 ArrayBuffer，讀出時再組回 Blob。
 function playErr(e){const m=(e&&e.message)||'';if(/not supported|NotSupported|decode|src/i.test(m)||(e&&e.name==='NotSupportedError'))toast('這段聲音的檔案已經損壞，無法播放。請刪除後重新上傳原始音檔。','err');else toast('無法播放：'+m,'err')}
@@ -2247,7 +2262,7 @@ function renderArchive(){renderHero();renderPetBar();$$('.viewsw [data-view]').f
  let list=items.filter(r=>(petFilter==='all'||(petFilter==='none'?!r.petId:r.petId===petFilter))&&(!q||[r.name,r.story,petNameOf(r)].join(' ').toLowerCase().includes(q))&&(tf==='all'||r.type===tf)&&(!fav||r.fav));
  list.sort((a,b)=>sort==='name'?a.name.localeCompare(b.name,'zh-Hant'):sort==='old'?(a.no-b.no):(b.no-a.no));
  const favN=items.filter(r=>r.fav).length;
- $('#stats').innerHTML=`<span>收藏 <b>${items.length}</b> 件</span><span>珍藏 <b>${favN}</b> 件</span>${items.length!==list.length?`<span>顯示 <b>${list.length}</b> 件</span>`:''}`;
+ $('#stats').innerHTML=`<span>收藏 <b>${items.length}</b> 件</span><span>珍藏 <b>${favN}</b> 件</span>${items.length!==list.length?`<span>顯示 <b>${list.length}</b> 件</span>`:''}${trashLink()}`;
  const body=$('#archiveBody');lastList=list;body.className=items.length&&list.length&&archView()!=='drawer'?(archView()==='time'?'tl-wrap':archView()==='ring'?'rg-wrap':'carts-wrap'):'cabinet';
  if(!items.length){body.className='cabinet empty-chest';body.innerHTML=`<div class="chest-empty"><ul class="drawers" aria-hidden="true">${[1,2,3,4,5,6].map(k=>`<li class="${k>4?'d-extra':''}"><div class="drawer"><span class="d-label"><b>　</b><small>${k===1?'第一格還空著':'尚未收藏'}</small></span><span class="d-handle"><i></i></span><span class="d-side"><span class="d-no">No.${pad(k)}</span></span></div></li>`).join('')}</ul><div class="chest-cta"><p>這裡還沒有聲音收藏。錄下第一個聲音，就會有一格屬於牠的抽屜。</p><button class="img-btn" id="emptyRec" aria-label="開始錄音"><img src="${PILL_SRC}" alt="" width="640" height="227"></button></div></div>`;$('#emptyRec').onclick=()=>{scrollTo$('#record');startRec()};return}
  if(!list.length){body.innerHTML=`<div class="empty"><h3>找不到符合的收藏</h3><p>換個關鍵字或清除篩選試試。</p><button class="btn ghost" id="clrF">清除篩選</button></div>`;$('#clrF').onclick=()=>{$('#q').value='';$('#fType').value='all';petFilter='all';$('#fFav').setAttribute('aria-pressed','false');renderArchive()};return}
@@ -2442,7 +2457,7 @@ async function openDetail(id,keepEdit){const r=items.find(x=>x.id===id);if(!r)re
  const go=d=>{const n=lastList[pos+d];if(n)openDetail(n.id)};$('#dPrev').onclick=()=>go(-1);$('#dNext').onclick=()=>go(1);
  $('#dVid').onclick=e=>exportVideo(r,e.currentTarget);
  $('#dWav').onclick=()=>download(r.audio,fileBase(r)+'.'+audioExt(r.audio));
- $('#dDel').onclick=async()=>{if(!await ask('確定要刪除這段收藏？',`「${r.name}」的聲音、照片和故事都會從這台裝置移除，無法復原。若之前有備份，可以從備份檔還原。`,[{v:false,t:'保留'},{v:true,t:'刪除',cls:'danger'}]))return;try{await dbDel(r.id)}catch(e){dbErr(e);return}stopAll();await reload();d.close();renderArchive();renderVault();toast('已刪除，其他收藏的編號已重新依序排好')};
+ $('#dDel').onclick=async()=>{if(!await ask('要刪除這段收藏嗎？',`「${r.name}」會移到「最近刪除」，${TRASH_DAYS} 天內都可以復原，之後才會永久刪除。`,[{v:false,t:'保留'},{v:true,t:'移到最近刪除',cls:'danger'}]))return;try{await trashRec(r)}catch(e){dbErr(e);return}stopAll();d.close();toastAct(`已把「${r.name}」移到最近刪除`,'復原',()=>untrash(r.id))};
  if(!keepEdit)play();else $('#dPlay').focus();
 }
 function editDetail(r){stopAll();const sh=$('#detailSheet');
@@ -2689,7 +2704,7 @@ const INFO={
 <h4>備份與分享</h4>
 <p>備份檔是一個下載到你手上的 ZIP 檔，要存到哪裡由你決定。如果你用「分享」或存到 Google 雲端硬碟、iCloud，檔案就交給你選的服務保管，適用那個服務的隱私規定。</p>
 <h4>刪除資料</h4>
-<p>在收藏櫃刪除單件收藏，或清除瀏覽器的網站資料，就會從裝置上移除。因為我們沒有存任何副本，刪除後無法幫你找回，請記得先備份。</p>
+<p>在收藏櫃刪除的收藏，會先放進「最近刪除」30 天，期間可以復原；時間到或你選擇永久刪除後，才會從裝置上移除。清除瀏覽器的網站資料則會立刻移除全部收藏。因為我們沒有存任何副本，永久刪除後無法幫你找回，請記得先備份。</p>
 <p class="info-meta">最後更新：2026 年 11 月 4 日　·　有任何疑問，歡迎透過 <a href="https://needtodeco.com/" target="_blank" rel="noopener">need to deco.</a> 聯絡</p>`},
  move:{k:'MOVING · 搬家教學',html:`<h3 id="infoT">換手機、換電腦，收藏一起搬過去</h3>
 <p class="info-lede">收藏只存在舊裝置的瀏覽器裡，不會自動跟著帳號走。照著下面五個步驟，大約五分鐘就能完整搬家。</p>
@@ -2712,6 +2727,32 @@ function openInfo(key){const it=INFO[key];if(!it)return;const d=$('#info');$('#i
 function infoFromHash(){const k=location.hash.slice(1);if(INFO[k])openInfo(k)}
 window.addEventListener('hashchange',infoFromHash);
 document.addEventListener('click',e=>{const a=e.target.closest('a[href="#privacy"],a[href="#move"]');if(!a)return;e.preventDefault();const k=a.getAttribute('href').slice(1);history.replaceState(null,'','#'+k);openInfo(k)});
+
+/* ---------- 最近刪除（30 天內可復原） ---------- */
+const TRASH_DAYS=30;
+async function trashRec(r){await dbPut({...r,deletedAt:Date.now(),origNo:r.no});await reload();renderArchive();renderVault()}
+async function untrash(id){const t=TRASH.find(x=>x.id===id);if(!t)return;const o={...t,no:(t.origNo||t.no||0)-.5,updatedAt:Date.now()};delete o.deletedAt;delete o.origNo;
+ try{await dbPut(o)}catch(e){dbErr(e);return}await reload();renderArchive();renderVault();if($('#info').open&&$('#info').dataset.k==='trash')openTrash();toast(`已復原「${t.name}」`)}
+async function purgeTrash(ids){for(const id of ids){try{await dbDel(id)}catch(e){console.error(e)}}await reload();renderArchive();renderVault()}
+async function autoPurge(){const lim=Date.now()-TRASH_DAYS*864e5,old=TRASH.filter(t=>t.deletedAt<lim).map(t=>t.id);if(old.length)await purgeTrash(old)}
+const daysLeft=t=>Math.max(0,Math.ceil((t.deletedAt+TRASH_DAYS*864e5-Date.now())/864e5));
+function toastAct(msg,label,fn){const el=document.createElement('div');el.className='act';const sp=document.createElement('span');sp.textContent=msg;const b=document.createElement('button');b.type='button';b.textContent=label;
+ b.onclick=()=>{el.remove();fn()};el.append(sp,b);$('#toast').appendChild(el);setTimeout(()=>el.remove(),7000)}
+function trashLink(){const n=TRASH.length;return n?`<button type="button" class="trash-link" data-trash>${ic('trash')}最近刪除 · ${n}</button>`:''}
+async function openTrash(){const d=$('#info');d.dataset.k='trash';$('#infoK').textContent='RECENTLY DELETED · 最近刪除';$('#infoX').innerHTML=ic('close');
+ const list=[...TRASH].sort((a,b)=>b.deletedAt-a.deletedAt);
+ $('#infoB').innerHTML=`<h3 id="infoT">最近刪除</h3><p class="info-lede">刪除的收藏會先放在這裡 ${TRASH_DAYS} 天，時間到才會永久刪除。放在這裡的收藏仍會佔用裝置空間，也不會放進備份檔。</p>
+ ${list.length?`<ul class="trash-list">${list.map(t=>`<li><canvas width="300" height="340" data-tc="${t.id}" aria-hidden="true"></canvas><div class="tr-txt"><b>${esc(t.name)}</b><span>${esc([petNameOf(t),(t.date||'').replaceAll('-','.'),fmt(t.duration||0)].filter(Boolean).join(' · '))}</span><em>${daysLeft(t)} 天後永久刪除</em></div><div class="tr-btns"><button type="button" class="btn primary sm" data-undo="${t.id}">${ic('redo')}復原</button><button type="button" class="btn ghost sm danger" data-kill="${t.id}">永久刪除</button></div></li>`).join('')}</ul>
+ <p class="tr-all"><button type="button" class="btn ghost sm" data-undoall>全部復原</button><button type="button" class="btn ghost sm danger" data-killall>全部永久刪除</button></p>`:'<p class="tr-empty">目前沒有刪除的收藏。</p>'}`;
+ if(!d.open)d.showModal();
+ d.onclose=()=>{delete d.dataset.k};
+ (async()=>{await fontsReady();for(const t of list){const cv=$(`[data-tc="${t.id}"]`,d);if(!cv)continue;const img=t.cover&&coverStyleOf(t)==='photo'?await safeImg(t.cover,t.id+':'+t.updatedAt):null;drawCartridge(cv.getContext('2d'),300,340,t,{img})}})();
+ $('#infoB').onclick=async e=>{const u=e.target.closest('[data-undo]'),k=e.target.closest('[data-kill]');
+  if(u){await untrash(u.dataset.undo);return}
+  if(k){const t=TRASH.find(x=>x.id===k.dataset.kill);if(!t)return;if(!await ask('永久刪除這段收藏？',`「${t.name}」的聲音、照片和故事都會從這台裝置移除，之後就無法復原了。`,[{v:false,t:'取消'},{v:true,t:'永久刪除',cls:'danger'}]))return;await purgeTrash([t.id]);openTrash();toast(`已永久刪除「${t.name}」`);return}
+  if(e.target.closest('[data-undoall]')){for(const t of [...TRASH])await untrash(t.id);return}
+  if(e.target.closest('[data-killall]')){const n=TRASH.length;if(!await ask(`永久刪除 ${n} 件收藏？`,'最近刪除裡的所有收藏都會從這台裝置移除，之後就無法復原了。',[{v:false,t:'取消'},{v:true,t:'全部永久刪除',cls:'danger'}]))return;await purgeTrash(TRASH.map(t=>t.id));openTrash();toast(`已永久刪除 ${n} 件收藏`)}}}
+document.addEventListener('click',e=>{if(e.target.closest('[data-trash]'))openTrash()});
 async function saveReminder(){const un=items.filter(r=>!r.backedUp).length;if(!un||$('#ask').open)return;
  const last=+store.get('lsa-lastBackup')||0,days=last?(Date.now()-last)/864e5:Infinity,snz=+store.get('lsa-bkSnooze')||0;
  const every5=un>=5&&un%5===0,stale=last>0&&days>=30&&Date.now()-snz>864e5;if(!every5&&!stale)return;
@@ -2729,7 +2770,7 @@ async function renderVault(){renderHomeTip();
   <ul class="vc-tree"><li><i aria-hidden="true">♪</i><b>audio/</b><span>${items.length} 段原始聲音</span></li><li><i aria-hidden="true">▣</i><b>covers/</b><span>${covers} 張卡匣封面照片</span></li><li><i aria-hidden="true">✿</i><b>pets/</b><span>${pn} 位毛孩${pp?`・${pp} 張大頭照`:''}</span></li><li><i aria-hidden="true">≡</i><b>manifest.json</b><span>名字、日期、小故事與標籤</span></li></ul>
   <div class="vc-status ${un?'warn':items.length?'ok':''}"><span>${un?`有 ${un} 件收藏還沒備份`:items.length?'✓ 所有收藏都已備份':'還沒有需要備份的聲音收藏'}</span><span class="mono">${last?'上次備份 '+new Date(+last).toLocaleDateString('zh-TW'):'從未備份'}</span></div>`}
  $('#vstat').innerHTML=`<div><span>防自動清除 <button type="button" class="qmark" data-tip="persist" aria-label="這是什麼？">?</button></span><b>${persisted===true?'已開啟':persisted===false?'未開啟':'不支援'}</b></div><div><span>聲音檔案占用空間</span><b>${own<1048576?(own/1024).toFixed(0)+' KB':(own/1048576).toFixed(1)+' MB'}</b></div><div><span>此網址總用量</span><b title="同一網址下其他網頁的資料也會算在內">${usage}</b></div>`;
- $('#bkBtn').disabled=!items.length;safeState(un,last);
+ $('#bkBtn').disabled=!items.length;{const vt=$('#vTrash');if(vt)vt.innerHTML=TRASH.length?`有 ${TRASH.length} 件收藏在「最近刪除」，${TRASH_DAYS} 天內可以復原。 ${trashLink()}`:'';if(vt)vt.hidden=!TRASH.length}safeState(un,last);
  const glow=un>=3;$('#vault').classList.toggle('glow',glow);
  const nv=$('#navVault');const dot=nv.querySelector('.dot');if(glow&&!dot){const s=document.createElement('span');s.className='dot';nv.appendChild(s);nv.setAttribute('aria-label',`保險箱，有 ${un} 件未備份`)}else if(!glow&&dot){dot.remove();nv.removeAttribute('aria-label')}
 }
@@ -3158,7 +3199,7 @@ async function renderHero(){
  heroUI();
 }
 function heroHeard(){try{return localStorage.getItem('lsa-heard')==='1'}catch{return false}}
-const APP_VERSION='2026.11.05-10';
+const APP_VERSION='2026.11.05-11';
 function heroOpenLbl(){const b=$('#heroOpen');if(!b)return;const n=items.length;b.innerHTML=ic('archive')+'打開收藏'+(n?`<span class="cnt"> · ${n}</span>`:'');b.setAttribute('aria-label',n?`打開收藏，共 ${n} 件`:'打開收藏')}
 function heroWave(p){const cv=$('#nowWave'),r=HERO.list[HERO.sel];if(!cv||!r)return;const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;const dpr=Math.min(2,window.devicePixelRatio||1);
  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
@@ -3266,7 +3307,7 @@ function init(){
 }
 (async()=>{init();
  try{await openDB();await reload()}catch(e){console.error(e);$('#archiveBody').innerHTML='<div class="empty"><h3>無法開啟本機收藏櫃</h3><p>這個瀏覽器（或無痕模式）不允許儲存資料。請改用一般模式的 Safari 或 Chrome 開啟。</p></div>';$('#saveBtn').disabled=true;return}
- await migratePets().catch(console.error);renderArchive();renderVault();backupReminder();$('#appVer').textContent=APP_VERSION;$('#tourBtn').onclick=openTour;recStep();$('#infoX').onclick=()=>$('#info').close();$('#info').addEventListener('click',e=>{if(e.target.id==='info')e.target.close()});setTimeout(infoFromHash,300);if(!items.length&&!store.get('lsa-tour'))setTimeout(openTour,700);
+ await migratePets().catch(console.error);await autoPurge().catch(console.error);renderArchive();renderVault();backupReminder();$('#appVer').textContent=APP_VERSION;$('#tourBtn').onclick=openTour;recStep();$('#infoX').onclick=()=>$('#info').close();$('#info').addEventListener('click',e=>{if(e.target.id==='info')e.target.close()});setTimeout(infoFromHash,300);if(!items.length&&!store.get('lsa-tour'))setTimeout(openTour,700);
  upgradePeaks();
 })();
 async function upgradePeaks(){for(const r of items.filter(x=>!x.peaks||x.peaks.length<200)){try{const b=await decodeBlob(r.audio);const rec={...r,peaks:calcPeaks(toMono(b),320)};await dbPut(rec);Object.assign(r,{peaks:rec.peaks})}catch{}}renderArchive()}
