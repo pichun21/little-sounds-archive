@@ -1525,6 +1525,20 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
 @media (max-width:640px){.nav-help{width:30px;height:30px;margin-left:2px}}
 @media (max-width:400px){.nav a{padding:0 6px!important;font-size:13.5px!important}.nav-help{width:28px;height:28px;margin-left:0}.brand b{font-size:14px!important;letter-spacing:.02em!important}}
 @media (max-width:350px){.brand b{display:none}}
+
+/* ==== drop the dark felt in preview / edit (match the archive) ==== */
+.preview-col{background:#FDFCF9!important;border:1px solid rgba(110,96,72,.22)!important;border-radius:16px!important;box-shadow:inset 0 1px 0 #fff,0 8px 20px rgba(48,47,43,.05)!important}
+.preview-col>.step{color:#4F4E48!important;border-bottom-color:rgba(48,47,43,.1)!important}
+.preview-col .stamp-note{color:#55544E!important}
+.pv-plinth{background:radial-gradient(ellipse at 50% 50%,rgba(48,47,43,.16),rgba(48,47,43,0) 70%)!important}
+.pv-slot{background:#EEEAE0!important;border:none!important;box-shadow:none!important;border-radius:14px!important}
+.pv-slot canvas{filter:drop-shadow(0 12px 12px rgba(48,47,43,.18)) drop-shadow(0 2px 2px rgba(48,47,43,.12))!important}
+.pv-slot::after{color:#66655F!important}.pv-slot::before{background:radial-gradient(ellipse at 50% 50%,rgba(48,47,43,.16),rgba(48,47,43,0) 70%)!important}
+.sheet-body:has(#eForm) .face-col{background:none!important;border:none!important;box-shadow:none!important;padding:0!important}
+.sheet-body:has(#eForm) .face-col canvas{filter:drop-shadow(0 14px 14px rgba(48,47,43,.18)) drop-shadow(0 2px 2px rgba(48,47,43,.12))!important}
+.sheet-body:has(#eForm) .face-col::after{display:none}
+.vp.full{background:#FBEDE6;border-color:rgba(176,74,54,.45);box-shadow:0 0 0 3px rgba(238,123,94,.15)}.vp.full>.ic{color:#B04A36}.vp.full b{color:#8F3A2A}
+.vmeter{height:6px;border-radius:99px;background:rgba(48,47,43,.12);overflow:hidden;margin-top:6px}.vmeter i{display:block;height:100%;background:#B04A36}
 </style>
 </head>
 <body>
@@ -1672,6 +1686,7 @@ h1,h2,h3,.sub,.desc,.sec-lede,.hint,.story,p{text-wrap:pretty}
               <p><b>另一個方法：</b>在 Google 雲端硬碟 App 找到備份檔，點「⋯」→「開啟方式」→「儲存到檔案」，存到「我的 iPhone」，再回來這裡選。</p>
               <p><b>Android：</b>按「從備份還原」後，點左上「☰」選單，就能看到「雲端硬碟」。</p>
             </details>
+            <div id="vSpace"></div>
             <div id="vPersist"></div>
             <p class="vtrash" id="vTrash" hidden></p>
             <div class="vstat vmini" id="vstat"></div>
@@ -2261,7 +2276,7 @@ async function saveNew(){
    await reload();resetEditor();renderArchive();renderVault();toast(`已替換「${upd.name}」的聲音`);scrollTo$('#archive');setTimeout(()=>{const el=$(`[data-id="${upd.id}"]`);if(el){el.classList.add('just-saved');setTimeout(()=>el.classList.remove('just-saved'),2200)}},350);return}
   try{const pr=await packRec(rec);await dbAdd(pr);rec.no=pr.no}catch(e){dbErr(e);return}
   const first=items.length===0;await reload();resetEditor();renderArchive();renderVault();if(first)askPersist();
-  toast(`已收進 No.${pad(rec.no)} 抽屜。目前只存在這台裝置，記得到保險箱備份`);setTimeout(saveReminder,2600);
+  toast(`已收進 No.${pad(rec.no)} 抽屜。目前只存在這台裝置，記得到保險箱備份`);setTimeout(async()=>{const si=await storageInfo();if(si&&si.low)storageWarn();else saveReminder()},2600);
   scrollTo$('#archive');setTimeout(()=>{const el=$(`.drawer[data-id="${rec.id}"]`);if(el)el.classList.add('fresh')},350);
  }finally{btn.classList.remove('loading');btn.disabled=false}
 }
@@ -2767,6 +2782,12 @@ async function openTrash(){const d=$('#info');d.dataset.k='trash';$('#infoK').te
   if(e.target.closest('[data-undoall]')){for(const t of [...TRASH])await untrash(t.id);return}
   if(e.target.closest('[data-killall]')){const n=TRASH.length;if(!await ask(`永久刪除 ${n} 件收藏？`,'最近刪除裡的所有收藏都會從這台裝置移除，之後就無法復原了。',[{v:false,t:'取消'},{v:true,t:'全部永久刪除',cls:'danger'}]))return;await purgeTrash(TRASH.map(t=>t.id));openTrash();toast(`已永久刪除 ${n} 件收藏`)}}}
 document.addEventListener('click',e=>{if(e.target.closest('[data-trash]'))openTrash()});
+
+/* ---------- 空間快滿提醒 ---------- */
+async function storageInfo(){try{if(navigator.storage&&navigator.storage.estimate){const e=await navigator.storage.estimate();if(e&&e.quota){const free=e.quota-(e.usage||0),pct=(e.usage||0)/e.quota;return{usage:e.usage||0,quota:e.quota,free,pct,low:pct>=.8||free<300*1048576}}}}catch{}return null}
+const mbStr=b=>b>=1073741824?(b/1073741824).toFixed(1)+' GB':Math.max(0,Math.round(b/1048576))+' MB';
+async function storageWarn(){const si=await storageInfo();if(!si||!si.low)return;const k='lsa-spaceWarn',last=+store.get(k)||0;if(Date.now()-last<864e5)return;store.set(k,String(Date.now()));
+ const v=await ask('裝置空間快不夠了',`這個網站還能用的空間剩大約 ${mbStr(si.free)}（已用 ${Math.round(si.pct*100)}%）。空間不足時新收藏會存不進去，瀏覽器也可能自動清除資料。建議先建立備份，再刪掉一些不需要的收藏，或清空「最近刪除」。`,[{v:0,t:'知道了'},{v:1,t:'到保險箱'}]);if(v)scrollTo$('#vault')}
 async function saveReminder(){const un=items.filter(r=>!r.backedUp).length;if(!un||$('#ask').open)return;
  const last=+store.get('lsa-lastBackup')||0,days=last?(Date.now()-last)/864e5:Infinity,snz=+store.get('lsa-bkSnooze')||0;
  const every5=un>=5&&un%5===0,stale=last>0&&days>=30&&Date.now()-snz>864e5;if(!every5&&!stale)return;
@@ -2785,6 +2806,7 @@ async function renderVault(){renderHomeTip();
   <div class="vc-status ${un?'warn':items.length?'ok':''}"><span>${un?`有 ${un} 件收藏還沒備份`:items.length?'✓ 所有收藏都已備份':'還沒有需要備份的聲音收藏'}</span><span class="mono">${last?'上次備份 '+new Date(+last).toLocaleDateString('zh-TW'):'從未備份'}</span></div>`}
  $('#vPersist').innerHTML=persisted===true?`<div class="vp ok">${ic('shield')}<div><b>防自動清除：已開啟</b><span>裝置空間不足時，瀏覽器不會自動清掉你的收藏。</span></div></div>`:persisted===false?`<div class="vp warn">${ic('shield')}<div><b>防自動清除：還沒開啟</b><span>裝置空間不足時，瀏覽器可能自動清掉網站資料，收藏會一起不見。開啟後就能避免。</span></div><button type="button" class="btn primary sm" id="vpOn">開啟保護</button></div>`:`<div class="vp">${ic('shield')}<div><b>防自動清除：這個瀏覽器不支援</b><span>請定期建立備份，並把網站加到主畫面使用。</span></div></div>`;
  {const b=$('#vpOn');if(b)b.onclick=async()=>{let ok=false;try{ok=await navigator.storage.persist()}catch{}await renderVault();toast(ok?'已開啟防自動清除，收藏不會被瀏覽器自動清掉':'瀏覽器這次沒有同意。把網站加到主畫面、常常使用後再試一次，通常就會成功；在那之前請記得定期備份',ok?'':'err')}}
+ {const si=await storageInfo();const el=$('#vSpace');if(el){el.innerHTML=si&&si.low?`<div class="vp full">${ic('box')}<div><b>裝置空間快不夠了</b><span>這個網站還能用的空間剩大約 ${mbStr(si.free)}。建議先建立備份，再刪掉不需要的收藏，或清空「最近刪除」。</span><span class="vmeter"><i style="width:${Math.min(100,Math.round(si.pct*100))}%"></i></span></div></div>`:''}}
  $('#vstat').innerHTML=`<div><span>聲音檔案占用空間</span><b>${own<1048576?(own/1024).toFixed(0)+' KB':(own/1048576).toFixed(1)+' MB'}</b></div><div><span>此網址總用量</span><b title="同一網址下其他網頁的資料也會算在內">${usage}</b></div>`;
  $('#bkBtn').disabled=!items.length;{const vt=$('#vTrash');if(vt)vt.innerHTML=TRASH.length?`有 ${TRASH.length} 件收藏在「最近刪除」，${TRASH_DAYS} 天內可以復原。 ${trashLink()}`:'';if(vt)vt.hidden=!TRASH.length}safeState(un,last);
  const glow=un>=3;$('#vault').classList.toggle('glow',glow);
@@ -3217,7 +3239,7 @@ async function renderHero(){
  heroUI();
 }
 function heroHeard(){try{return localStorage.getItem('lsa-heard')==='1'}catch{return false}}
-const APP_VERSION='2026.11.06-1';
+const APP_VERSION='2026.11.06-2';
 function heroOpenLbl(){const b=$('#heroOpen');if(!b)return;const n=items.length;b.innerHTML=ic('archive')+'打開收藏'+(n?`<span class="cnt"> · ${n}</span>`:'');b.setAttribute('aria-label',n?`打開收藏，共 ${n} 件`:'打開收藏')}
 function heroWave(p){const cv=$('#nowWave'),r=HERO.list[HERO.sel];if(!cv||!r)return;const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;const dpr=Math.min(2,window.devicePixelRatio||1);
  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
