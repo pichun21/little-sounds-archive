@@ -2664,7 +2664,7 @@ async function exportVideo(r,btn){
   const buf=await Promise.race([decodeBlob(r.audio),sleep(8000).then(()=>{throw new Error('讀取音檔逾時')})]);
   const dest=ctx.createMediaStreamDestination();vs=cv.captureStream(30);
   const stream=new MediaStream([...vs.getVideoTracks(),...dest.stream.getAudioTracks()]);
-  const mime=['video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t));
+  const mime=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t));
   const mr=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:4500000}:undefined),chunks=[];
   mr.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data)};
   const done=new Promise((res,rej)=>{mr.onstop=res;mr.onerror=e=>rej(e.error||new Error('錄製失敗'))});
@@ -3135,7 +3135,7 @@ function openCollage(){stopAll();lastFocus=document.activeElement;const sh=$('#d
  <label>段落間隔<select id="clGap">${[[0,'緊接'],[.5,'0.5 秒'],[1,'1 秒'],[2,'2 秒']].map(([v,t])=>`<option value="${v}" ${CL.gap===v?'selected':''}>${t}</option>`).join('')}</select></label></div>
  <label class="cl-name"><span>合輯名稱</span><input type="text" id="clName" maxlength="30" value="${esc(CL.name||(CL.sel.length?collageTitle(CL.sel.map(id=>items.find(r=>r.id===id)).filter(Boolean)):''))}" placeholder="選好聲音後會自動命名"></label>
  <p class="mono cl-tot">總長 ${fmt(total(),1)}</p>
- <div class="row cl-act"><button class="btn ghost" id="clPlay" ${CL.sel.length?'':'disabled'}>${ic('play')}試聽</button><button class="btn primary" id="clWav" ${CL.sel.length?'':'disabled'}>${ic('download')}輸出 WAV</button></div></div></div></div>`;
+ <div class="row cl-act"><button class="btn ghost" id="clPlay" ${CL.sel.length?'':'disabled'}>${ic('play')}試聽</button><button class="btn ghost" id="clWav" ${CL.sel.length?'':'disabled'}>${ic('download')}輸出 WAV</button>${canVideo()?`<button class="btn primary" id="clVid" ${CL.sel.length?'':'disabled'}>${ic('film')}做成分享影片</button>`:''}</div><p class="hint cl-vid-hint">分享影片是直式 1080×1920，適合 IG 限時動態、Reels、TikTok；片尾會帶上收藏館的網址。</p></div></div></div>`;
   $('#clX').onclick=()=>$('#detail').close();
   $$('[data-pick]',sh).forEach(b=>b.onchange=()=>{const id=b.dataset.pick;CL.sel=b.checked?[...CL.sel,id].slice(0,8):CL.sel.filter(x=>x!==id);XS_stop();draw()});
   const mv=(i,j)=>{const a=CL.sel;[a[i],a[j]]=[a[j],a[i]];XS_stop();draw()};
@@ -3144,16 +3144,87 @@ function openCollage(){stopAll();lastFocus=document.activeElement;const sh=$('#d
   $('#clFade').onchange=e=>{CL.fade=+e.target.value;XS_stop();draw()};$('#clGap').onchange=e=>{CL.gap=+e.target.value;XS_stop();draw()};
   $('#clPlay').onclick=async()=>{if(XS.audio&&!XS.audio.paused&&XS.audio._cl){XS_stop();$('#clPlay').innerHTML=ic('play')+'試聽';return}
    const b=await buildCollage();if(!b)return;stopAll();const au=new Audio(URL.createObjectURL(b));au._cl=1;XS.audio=au;au.onended=()=>{const p=$('#clPlay');if(p)p.innerHTML=ic('play')+'試聽'};try{await au.play();$('#clPlay').innerHTML=ic('pause')+'停止'}catch(e){playErr(e)}};
-  $('#clName').oninput=e=>{CL.name=e.target.value.trim()};
+  $('#clName').oninput=e=>{CL.name=e.target.value.trim()};{const v=$('#clVid');if(v)v.onclick=e=>exportCollageVideo(e.currentTarget)}
   $('#clWav').onclick=async()=>{const b=await buildCollage();if(!b)return;const nm=($('#clName').value||'').trim()||'聲音合輯';offerFile(b,`${safeName(nm)}.wav`,`「${nm}」完成了`,`共 ${CL.sel.length} 段、${fmt(total(),1)}，WAV 格式。`)}};
  draw();if(!$('#detail').open)$('#detail').showModal()}
+/* ---------- 拼貼工作室：社群分享影片（1080×1920，適合 IG 限動／Reels、TikTok、LINE） ---------- */
+async function exportCollageVideo(btn){
+ const b0=await buildCollage();if(!b0||!buildCollage.last)return;const L=buildCollage.last;
+ setLoading(btn,true,'準備中…');stopAll();let cv=null,vs=null,alive=false,iv=0;
+ try{const ctx=AC();if(ctx.resume)await Promise.race([ctx.resume(),sleep(1500)]);await fontsReady();
+  const W=1080,H=1920;cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  cv.style.cssText='position:fixed;left:0;top:0;width:6px;height:8px;opacity:.01;pointer-events:none;z-index:-1';document.body.appendChild(cv);
+  const c=cv.getContext('2d'),recs=L.segs.map(s=>items.find(r=>r.id===s.id)).filter(Boolean);
+  const name=(($('#clName')||{}).value||'').trim()||collageTitle(recs)||'聲音合輯';
+  const pid=recs[0]&&recs[0].petId,who=recs.every(r=>r.petId===pid)&&pid?(petById(pid)||{}).name:'';
+  // cartridges
+  const carts=[];for(const r of recs){const img=r.cover&&coverStyleOf(r)==='photo'?await safeImg(r.cover,r.id+':'+r.updatedAt):null;const k=document.createElement('canvas');k.width=600;k.height=680;drawCartridge(k.getContext('2d'),600,680,r,{img});carts.push(k)}
+  // static background
+  const bg=document.createElement('canvas');bg.width=W;bg.height=H;const g=bg.getContext('2d');paperTex(g,W,H,'#F3EEE2','collage'+name);
+  drawBrand(g,84,86,74,'left');
+  g.fillStyle='#8A4B2E';g.font='600 24px "IBM Plex Mono",monospace';g.textAlign='right';g.fillText('SOUND COLLAGE',W-84,118);g.fillStyle='#5B5A54';g.font='500 22px "Noto Sans TC",sans-serif';g.fillText('聲音合輯',W-84,152);g.textAlign='left';
+  g.fillStyle='rgba(48,47,43,.22)';g.fillRect(84,200,W-168,2);
+  g.fillStyle='#22302B';g.font='700 76px "Noto Serif TC",serif';const tl=wrapText(g,name,W-168,2);tl.forEach((l,i)=>g.fillText(l,84,300+i*92));
+  const ty=300+(tl.length-1)*92+58;g.fillStyle='#5B5A54';g.font='500 28px "IBM Plex Mono","Noto Sans TC",monospace';g.fillText([who,`${recs.length} 段聲音`,fmt(L.out.length/L.sr)].filter(Boolean).join('  ·  '),84,ty);
+  // CTA band
+  const by=H-290;g.fillStyle='#26322D';rrect(g,60,by,W-120,190,26);g.fill();g.fillStyle='rgba(255,255,255,.06)';rrect(g,60,by,W-120,95,26);g.fill();
+  g.fillStyle='#F3EEE2';g.font='700 40px "Noto Serif TC",serif';g.fillText('替你家毛孩，也收藏一段聲音',110,by+78);
+  g.fillStyle='#F2D98D';g.font='600 34px "IBM Plex Mono",monospace';g.fillText('petsound.needtodeco.com',110,by+140);
+  g.fillStyle='rgba(243,238,226,.7)';g.font='500 22px "Noto Sans TC",sans-serif';g.textAlign='right';g.fillText('免註冊・資料只存在你的裝置',W-110,by+140);g.textAlign='left';
+  if(LOGO.complete&&LOGO.naturalWidth){const lh=34,lw=lh*LOGO.naturalWidth/LOGO.naturalHeight;g.globalAlpha=.55;g.drawImage(LOGO,(W-lw)/2,H-48-lh+8,lw,lh);g.globalAlpha=1}
+  // end card
+  const end=document.createElement('canvas');end.width=W;end.height=H;const e=end.getContext('2d');paperTex(e,W,H,'#F3EEE2','end'+name);
+  drawBrand(e,W/2,700,150,'center');e.textAlign='center';e.fillStyle='#22302B';e.font='700 50px "Noto Serif TC",serif';e.fillText('把熟悉的聲音，收藏成永遠的日常。',W/2,980);
+  e.fillStyle='#5B5A54';e.font='500 32px "Noto Sans TC",sans-serif';e.fillText('錄下呼嚕、腳步、叫聲，做成一卷卷聲音卡匣',W/2,1050);
+  e.fillStyle='#26322D';rrect(e,W/2-330,1130,660,110,55);e.fill();e.fillStyle='#F2D98D';e.font='600 38px "IBM Plex Mono",monospace';e.fillText('petsound.needtodeco.com',W/2,1199);
+  e.fillStyle='#5B5A54';e.font='500 26px "Noto Sans TC",sans-serif';e.fillText('免註冊・免安裝・資料只存在你的裝置',W/2,1300);
+  if(LOGO.complete&&LOGO.naturalWidth){const lh=44,lw=lh*LOGO.naturalWidth/LOGO.naturalHeight;e.globalAlpha=.7;e.drawImage(LOGO,(W-lw)/2,H-200,lw,lh);e.globalAlpha=1}e.textAlign='left';
+  // waveform
+  const bars=120,pk=calcPeaks(L.out,bars*4),wv=[];for(let i=0;i<bars;i++){let m=0;for(let j=i*4;j<i*4+4;j++)m=Math.max(m,pk[j]||0);wv.push(m)}
+  const segAt=t=>{let k=0;for(let i=0;i<L.segs.length;i++)if(t>=L.segs[i].start-.05)k=i;return k};
+  const dur=L.out.length/L.sr,lead=.6,tail=2.6;let amp=0;
+  const CW=700,CH=CW*680/600,CY=ty+80,thY=CY+CH+50,wY=thY+CW*0+ (Math.min(110,(W-168)/Math.max(1,L.segs.length))*680/600)+100,wX=84,wW=W-168,wH=70;
+  const frame=t=>{c.drawImage(bg,0,0);const tt=Math.max(0,Math.min(dur,t)),k=segAt(tt),s=L.segs[k],p=tt/dur;
+   const a=wv[Math.min(bars-1,Math.floor(p*bars))]||0;amp+=((t>0&&t<dur?a:0)-amp)*.3;
+   const since=tt-s.start,tr=Math.min(1,Math.max(0,since/.4)),ease=1-Math.pow(1-tr,3);
+   const drawCart=(idx,x,al,sc)=>{if(idx<0||!carts[idx])return;c.save();c.globalAlpha=al;c.translate(x,CY+CH/2);c.rotate((idx%2?1.4:-1.4)*Math.PI/180);c.scale(sc,sc);c.shadowColor='rgba(48,47,43,.28)';c.shadowBlur=40;c.shadowOffsetY=24;c.drawImage(carts[idx],-CW/2,-CH/2,CW,CH);c.restore()};
+   if(k>0&&tr<1)drawCart(k-1,W/2-ease*420,1-ease,1);drawCart(k,W/2+(1-ease)*420,ease,1+amp*.03);
+   // track thumbnails
+   const n=carts.length,tw=Math.min(110,(W-168-(n-1)*16)/n),th=tw*680/600,tx0=(W-(n*tw+(n-1)*16))/2;
+   carts.forEach((cc,i)=>{const x=tx0+i*(tw+16);c.globalAlpha=i===k?1:i<k?.55:.35;c.drawImage(cc,x,thY,tw,th);c.globalAlpha=1;if(i===k){c.fillStyle='#2E5E50';c.fillRect(x+tw*.2,thY+th+10,tw*.6,5)}});
+   c.fillStyle='#22302B';c.font='700 34px "Noto Serif TC",serif';c.textAlign='center';const r=recs[k];c.fillText(`${String(k+1).padStart(2,'0')} / ${String(n).padStart(2,'0')}  ${r?r.name:''}`,W/2,thY+th+62);c.textAlign='left';
+   // wave
+   const bw=wW/bars,pal=palOf(r||{}).stops,gr=c.createLinearGradient(wX,0,wX+wW,0);pal.forEach((h,i)=>gr.addColorStop(pal.length>1?i/(pal.length-1):0,h));
+   for(let i=0;i<bars;i++){const v=Math.max(.06,wv[i]),hh=v*wH,on=(i+.5)/bars<=p;c.fillStyle=on?gr:'rgba(48,47,43,.16)';c.fillRect(wX+i*bw+bw*.2,wY+(wH-hh)/2,bw*.6,hh)}
+   c.fillStyle='#22302B';c.font='600 26px "IBM Plex Mono",monospace';c.fillText(fmt(tt),wX,wY+wH+44);c.textAlign='right';c.fillStyle='#5B5A54';c.fillText(fmt(dur),wX+wW,wY+wH+44);c.textAlign='left';
+   if(t<0){c.fillStyle=`rgba(243,238,226,${Math.min(1,-t/lead).toFixed(3)})`;c.fillRect(0,0,W,H)}
+   if(t>dur+.3){const f=Math.min(1,(t-dur-.3)/.5);c.globalAlpha=f;c.drawImage(end,0,0);c.globalAlpha=1}};
+  frame(-lead);
+  const ab=ctx.createBuffer(1,L.out.length,L.sr);ab.getChannelData(0).set(L.out);
+  const dest=ctx.createMediaStreamDestination();vs=cv.captureStream(30);
+  const stream=new MediaStream([...vs.getVideoTracks(),...dest.stream.getAudioTracks()]);
+  const mime=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(t=>MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported(t));
+  const mr=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:6000000}:undefined),chunks=[];
+  mr.ondataavailable=ev=>{if(ev.data&&ev.data.size)chunks.push(ev.data)};
+  const done=new Promise((res,rej)=>{mr.onstop=res;mr.onerror=ev=>rej(ev.error||new Error('錄製失敗'))});
+  const total=lead+dur+tail;mr.start(500);const src=ctx.createBufferSource();src.buffer=ab;src.connect(dest);src.start(ctx.currentTime+lead);
+  const p0=performance.now();alive=true;const tick=()=>{if(!alive)return;frame((performance.now()-p0)/1000-lead);setTimeout(tick,33)};tick();
+  iv=setInterval(()=>{const left=Math.max(0,Math.ceil(total-(performance.now()-p0)/1000));btn.innerHTML=ic('redo')+`錄製中，還要 ${left} 秒`},250);
+  await sleep(total*1000);alive=false;clearInterval(iv);btn.innerHTML=ic('redo')+'整理檔案…';
+  if(mr.state!=='inactive'){try{mr.requestData()}catch{}mr.stop()}
+  await Promise.race([done,sleep(6000)]);
+  if(!chunks.length)throw new Error(`這個瀏覽器沒有產生影片資料（${mime||'預設格式'}）`);
+  const type=(mr.mimeType||mime||'video/webm').split(';')[0],ext=type.includes('mp4')?'mp4':'webm';
+  offerFile(new Blob(chunks,{type}),`${safeName(name)}_分享影片.${ext}`,'分享影片做好了',ext==='mp4'?'直式 1080×1920，可以直接發到 IG 限時動態、Reels、TikTok 或 LINE。片尾會帶上收藏館的網址。':'這是 WebM 格式，電腦上可以直接播放；要發到 IG 或手機 App，建議用 iPhone Safari 製作，會直接產生 MP4。');
+ }catch(err){console.error(err);toast('分享影片製作失敗：'+(err.message||err),'err')}
+ finally{alive=false;clearInterval(iv);if(vs)vs.getTracks().forEach(t=>t.stop());if(cv)cv.remove();setLoading(btn,false)}}
 async function buildCollage(){try{const bufs=[];for(const id of CL.sel){const r=items.find(x=>x.id===id);if(r)bufs.push(await decodeBlob(r.audio))}
  if(!bufs.length)return null;const sr=bufs[0].sampleRate,gap=Math.round(CL.gap*sr);
  const lens=bufs.map(b=>Math.round(b.duration*sr)),N=lens.reduce((a,b)=>a+b,0)+gap*(bufs.length-1);if(N/sr>600){toast('合輯超過 10 分鐘，請少選幾段','err');return null}
- const out=new Float32Array(N);let pos=0;
+ const out=new Float32Array(N);let pos=0;const segs=[];
  bufs.forEach((b,k)=>{const ch=b.numberOfChannels,L=lens[k],f=Math.min(Math.round(CL.fade*sr),Math.floor(L/2)),src=[];for(let c=0;c<ch;c++)src.push(b.getChannelData(c));const ratio=b.length/L;
-  for(let i=0;i<L;i++){const j=Math.min(b.length-1,Math.floor(i*ratio));let v=0;for(let c=0;c<ch;c++)v+=src[c][j];v/=ch;let g=1;if(f){if(i<f)g=i/f;else if(i>L-f)g=(L-i)/f}out[pos+i]=v*g}pos+=L+gap});
- return encodeWav(out,sr)}catch(e){console.error(e);toast('拼貼失敗：'+e.message,'err');return null}}
+  for(let i=0;i<L;i++){const j=Math.min(b.length-1,Math.floor(i*ratio));let v=0;for(let c=0;c<ch;c++)v+=src[c][j];v/=ch;let g=1;if(f){if(i<f)g=i/f;else if(i>L-f)g=(L-i)/f}out[pos+i]=v*g}segs.push({id:CL.sel[k],start:pos/sr,end:(pos+L)/sr});pos+=L+gap});
+ buildCollage.last={out,sr,segs};return encodeWav(out,sr)}catch(e){console.error(e);toast('拼貼失敗：'+e.message,'err');return null}}
 
 function drawCartridge(c,W,H,r,o={}){
  const u=W/300;c.clearRect(0,0,W,H);
@@ -3239,7 +3310,7 @@ async function renderHero(){
  heroUI();
 }
 function heroHeard(){try{return localStorage.getItem('lsa-heard')==='1'}catch{return false}}
-const APP_VERSION='2026.11.06-2';
+const APP_VERSION='2026.11.06-3';
 function heroOpenLbl(){const b=$('#heroOpen');if(!b)return;const n=items.length;b.innerHTML=ic('archive')+'打開收藏'+(n?`<span class="cnt"> · ${n}</span>`:'');b.setAttribute('aria-label',n?`打開收藏，共 ${n} 件`:'打開收藏')}
 function heroWave(p){const cv=$('#nowWave'),r=HERO.list[HERO.sel];if(!cv||!r)return;const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;const dpr=Math.min(2,window.devicePixelRatio||1);
  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
