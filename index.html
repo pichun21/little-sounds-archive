@@ -3310,7 +3310,7 @@ async function renderHero(){
  heroUI();
 }
 function heroHeard(){try{return localStorage.getItem('lsa-heard')==='1'}catch{return false}}
-const APP_VERSION='2026.11.06-3';
+const APP_VERSION='2026.11.14-1';
 function heroOpenLbl(){const b=$('#heroOpen');if(!b)return;const n=items.length;b.innerHTML=ic('archive')+'打開收藏'+(n?`<span class="cnt"> · ${n}</span>`:'');b.setAttribute('aria-label',n?`打開收藏，共 ${n} 件`:'打開收藏')}
 function heroWave(p){const cv=$('#nowWave'),r=HERO.list[HERO.sel];if(!cv||!r)return;const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;const dpr=Math.min(2,window.devicePixelRatio||1);
  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
@@ -3424,5 +3424,75 @@ function init(){
 async function upgradePeaks(){for(const r of items.filter(x=>!x.peaks||x.peaks.length<200)){try{const b=await decodeBlob(r.audio);const rec={...r,peaks:calcPeaks(toMono(b),320)};await dbPut(rec);Object.assign(r,{peaks:rec.peaks})}catch{}}renderArchive()}
 </script>
 <script>if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'))window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));</script>
+<style id="ringCss">
+/* ===== 卡匣圓環（首頁陳列）===== */
+.shelf.ring{display:block!important;position:relative;overflow:visible!important;padding:0!important;margin:8px 0 6px!important;height:var(--ring-h,420px);perspective:var(--ring-p,1400px);perspective-origin:50% 38%;transform-style:preserve-3d;-webkit-mask-image:none!important;mask-image:none!important;scroll-snap-type:none!important;touch-action:pan-y;cursor:grab;user-select:none;-webkit-user-select:none}
+.shelf.ring.spinning{cursor:grabbing}
+.shelf.ring>li{position:absolute!important;left:50%;top:var(--ring-cy,45%);width:var(--ring-w,180px);margin:0;flex:none!important;transform-style:preserve-3d;will-change:transform;transition:none!important}
+.shelf.ring>li>.cart,.shelf.ring>li>.shelf-more>button,.shelf.ring>li>button{-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.shelf.ring>li::before{content:"";position:absolute;inset:3% 2% 8%;border-radius:12px;background:repeating-linear-gradient(180deg,rgba(255,255,255,.18) 0 3px,transparent 3px 9px) 50% 9%/72% 13% no-repeat,linear-gradient(160deg,#DDD8CB,#C9C3B4);box-shadow:inset 0 0 0 1px rgba(48,47,43,.1);transform:rotateY(180deg) translateZ(1px);-webkit-backface-visibility:hidden;backface-visibility:hidden;pointer-events:none}
+.shelf.ring .shelf-hint{bottom:-26px}
+.shelf.ring .shelf-more button{aspect-ratio:600/680}
+.hero{overflow-x:clip}
+.shelf.ring img.ring-cv{width:100%;height:auto;aspect-ratio:300/340;display:block}
+.ring-floor{position:absolute;left:50%;top:calc(var(--ring-cy,45%) + var(--ring-fy,120px));width:var(--ring-fw,70%);height:var(--ring-fh,60px);transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(48,47,43,.16),rgba(48,47,43,0));pointer-events:none;list-style:none}
+.shelf.ring.spinning .cart,.shelf.ring.moved .cart{pointer-events:none}
+</style>
+<script>
+/* 卡匣圓環：首頁陳列的卡匣排成一列後捲成立體圓環，可拖曳旋轉、點選的卡匣轉到正前方 */
+(()=>{const sh=document.getElementById('shelf');if(!sh)return;
+ const RM=matchMedia('(prefers-reduced-motion: reduce)');
+ const st={ang:0,vel:0,target:null,intro:-.3,introDone:false,lis:[],n:0,step:0,R:0,w:0,last:0,hover:false,drag:null,idle:0,visible:true,raf:0,sel:-1};
+ const ez=x=>{x=Math.max(0,Math.min(1,x));return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
+ let building=false;
+ function cards(){return [...sh.children].filter(li=>li.tagName==='LI'&&!li.classList.contains('ring-floor'))}
+ function syncClones(){const real=cards().filter(li=>!li.dataset.clone),n=real.length;sh.querySelectorAll('li[data-clone]').forEach(x=>x.remove());
+  if(n&&n<8){const reps=Math.ceil(8/n)-1;for(let r=0;r<reps;r++)real.forEach(li=>{const c=li.cloneNode(true);c.dataset.clone='1';c.setAttribute('aria-hidden','true');c.querySelectorAll('button').forEach(b=>{b.tabIndex=-1;b.removeAttribute('id')});c.querySelectorAll('canvas').forEach(v=>{const im=document.createElement('img');im.className='ring-cv';im.alt='';v.replaceWith(im)});sh.appendChild(c)});copyClones()}}
+ function copyClones(){const real=cards().filter(li=>!li.dataset.clone);sh.querySelectorAll('li[data-clone]').forEach((c,i)=>{const s=real[i%real.length].querySelector('canvas'),d=c.querySelector('img.ring-cv');if(s&&d){try{d.src=s.toDataURL('image/webp',.85)}catch{}}})}
+ function measure(){st.lis=cards();st.n=st.lis.length;if(!st.n)return;
+  const W=sh.clientWidth||sh.parentElement.clientWidth,mob=W<600;
+  let w=Math.min(mob?130:185,W*(mob?.32:.18));const gap=1.12;let R=st.n*w*gap/(2*Math.PI);
+  const Rmax=mob?W*.8:(W-w)/2*.95;if(R>Rmax){R=Rmax;w=Math.min(w,2*Math.PI*R/(st.n*gap))}
+  R=Math.max(R,w*.9);st.R=R;st.w=w;st.step=360/st.n;const h=w*680/600;
+  sh.style.setProperty('--ring-w',w+'px');sh.style.setProperty('--ring-h',Math.round(h*1.25+R*.42+40)+'px');sh.style.setProperty('--ring-cy',Math.round(h*.55+R*.2+16)+'px');
+  sh.style.setProperty('--ring-p',Math.round(Math.max(900,R*4.2))+'px');sh.style.setProperty('--ring-fy',Math.round(h*.62)+'px');sh.style.setProperty('--ring-fw',Math.round(R*2.1)+'px');sh.style.setProperty('--ring-fh',Math.round(R*.42)+'px');
+  let f=sh.querySelector('.ring-floor');if(!f){f=document.createElement('li');f.className='ring-floor';f.setAttribute('aria-hidden','true');sh.prepend(f)}}
+ function layout(){const n=st.n;if(!n)return;const m=ez(Math.max(0,st.intro)),flatGap=st.w*1.06,tilt=-11*m;
+  const fr=((Math.round(-st.ang/st.step)%n)+n)%n;
+  st.lis.forEach((li,i)=>{let a=(i*st.step+st.ang)*Math.PI/180;let dd=((i-fr)%n+n)%n;if(dd>=n/2)dd-=n;a=Math.atan2(Math.sin(a),Math.cos(a));if(m<1&&Math.abs(a)>Math.PI*.98)a=Math.sign(dd||1)*Math.abs(a);
+   const rx=st.R*Math.sin(a),rz=st.R*Math.cos(a)-st.R*.4,fx=dd*flatGap;
+   const x=fx+(rx-fx)*m,z=rz*m+(1-m)*st.R*.6,ry=a*180/Math.PI*m;const cz=Math.cos(a);
+   li.style.transform=`translate(-50%,-50%) rotateX(${tilt}deg) translate3d(${x.toFixed(1)}px,0,${z.toFixed(1)}px) rotateY(${ry.toFixed(2)}deg)`;
+   li.style.zIndex=Math.round(100+cz*100*m);li.style.opacity=m<1?1:(.55+.45*Math.max(0,(cz+1)/2)).toFixed(3)});
+  const f=sh.querySelector('.ring-floor');if(f)f.style.opacity=m}
+ function selIndex(){const b=sh.querySelector('li:not([data-clone]) .cart[aria-pressed=true]');if(!b)return -1;return st.lis.indexOf(b.closest('li'))}
+ function face(i){if(i<0)return;let t=-i*st.step;const d=((t-st.ang)%360+540)%360-180;st.target=st.ang+d}
+ function tick(ts){st.raf=requestAnimationFrame(tick);const dt=Math.min(.05,(ts-(st.last||ts))/1000);st.last=ts;if(st.manual||!st.visible||document.hidden)return;advance(dt)}
+ function advance(dt){
+  if(!st.introDone){st.intro=Math.min(1,st.intro+dt/1.8);if(st.intro>=1)st.introDone=true}
+  if(st.drag){}else if(st.target!=null){const d=st.target-st.ang;st.ang+=d*Math.min(1,dt*6);if(Math.abs(d)<.05){st.ang=st.target;st.target=null;st.idle=0}}
+  else if(Math.abs(st.vel)>.5){st.ang+=st.vel*dt;st.vel*=Math.pow(.06,dt)}
+  else{st.vel=0;st.idle+=dt;const playing=!!sh.querySelector('.cart.playing');if(!RM.matches&&!st.hover&&!playing&&st.idle>2.5&&st.introDone)st.ang-=6*dt}
+  layout()}
+ function build(){if(building)return;building=true;syncClones();measure();if(st.selFlat==null)st.selFlat=(Math.min(st.n,6)-1)/2;
+  const i=selIndex();if(i>=0&&st.sel!==i){st.sel=i;if(st.introDone)face(i);else st.ang=-i*st.step}layout();building=false}
+ sh.classList.add('ring');if(RM.matches){st.intro=1;st.introDone=true}
+ new MutationObserver(ms=>{if(building)return;let rebuild=false,sel=false;for(const m of ms){if(m.type==='childList'&&[...m.addedNodes,...m.removedNodes].some(x=>x.nodeType===1&&x.tagName==='LI'&&!x.dataset.clone&&!x.classList.contains('ring-floor')))rebuild=true;if(m.type==='attributes'&&m.attributeName==='aria-pressed')sel=true}
+  if(rebuild){st.sel=-1;build();setTimeout(copyClones,400);setTimeout(copyClones,1500);setTimeout(copyClones,4000)}
+  else if(sel){const i=selIndex();if(i>=0&&i!==st.sel){st.sel=i;face(i)}}}).observe(sh,{childList:true,subtree:true,attributes:true,attributeFilter:['aria-pressed']});
+ // 拖曳旋轉（滑鼠與觸控）
+ sh.addEventListener('pointerdown',e=>{if(e.button>0)return;e.stopPropagation();st.drag={x:e.clientX,y:e.clientY,a:st.ang,t:performance.now(),moved:false,lx:e.clientX,lt:performance.now(),id:e.pointerId};st.target=null;st.vel=0;st.idle=0},{capture:true});
+ window.addEventListener('pointermove',e=>{const d=st.drag;if(!d||e.pointerId!==d.id)return;const dx=e.clientX-d.x;if(!d.moved&&Math.abs(dx)>6&&Math.abs(dx)>Math.abs(e.clientY-d.y)){d.moved=true;sh.classList.add('spinning');try{sh.setPointerCapture(d.id)}catch{}}
+  if(d.moved){const k=180/(Math.PI*st.R||300);st.ang=d.a+dx*k;const now=performance.now(),dtt=(now-d.lt)/1000;if(dtt>0){st.vel=(e.clientX-d.lx)*k/dtt*.9;d.lx=e.clientX;d.lt=now}st.introDone=true;st.intro=1}},{passive:true});
+ const end=e=>{const d=st.drag;if(!d)return;st.drag=null;sh.classList.remove('spinning');if(d.moved){sh.classList.add('moved');const stop=ev=>{ev.stopPropagation();ev.preventDefault()};sh.addEventListener('click',stop,{capture:true,once:true});setTimeout(()=>{sh.removeEventListener('click',stop,{capture:true});sh.classList.remove('moved')},60)}};
+ window.addEventListener('pointerup',end);window.addEventListener('pointercancel',end);
+ sh.addEventListener('pointerenter',e=>{if(e.pointerType==='mouse')st.hover=true});sh.addEventListener('pointerleave',()=>st.hover=false);
+ sh.addEventListener('click',e=>{const li=e.target.closest('li');if(!li)return;const i=st.lis.indexOf(li);if(li.dataset.clone){const b=li.querySelector('.cart');if(b){e.stopPropagation();e.preventDefault();const k=+b.dataset.k;const real=sh.querySelector(`li:not([data-clone]) .cart[data-k="${k}"]`);st.sel=i;face(i);real&&real.click()}}},{capture:true});
+ if('IntersectionObserver' in window)new IntersectionObserver(es=>es.forEach(en=>st.visible=en.isIntersecting)).observe(sh);
+ addEventListener('resize',()=>{measure();layout()});
+ build();st.raf=requestAnimationFrame(tick);
+ st.advance=advance;window.__ring=st;
+})();
+</script>
 </body>
 </html>
