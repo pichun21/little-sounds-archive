@@ -3310,14 +3310,14 @@ async function renderHero(){
  heroUI();
 }
 function heroHeard(){try{return localStorage.getItem('lsa-heard')==='1'}catch{return false}}
-const APP_VERSION='2026.11.14-1';
+const APP_VERSION='2026.11.16-1';
 function heroOpenLbl(){const b=$('#heroOpen');if(!b)return;const n=items.length;b.innerHTML=ic('archive')+'打開收藏'+(n?`<span class="cnt"> · ${n}</span>`:'');b.setAttribute('aria-label',n?`打開收藏，共 ${n} 件`:'打開收藏')}
 function heroWave(p){const cv=$('#nowWave'),r=HERO.list[HERO.sel];if(!cv||!r)return;const w=cv.clientWidth,h=cv.clientHeight;if(!w||!h)return;const dpr=Math.min(2,window.devicePixelRatio||1);
  if(cv.width!==Math.round(w*dpr)||cv.height!==Math.round(h*dpr)){cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr)}const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,w,h);
- const pk=r.peaks||[],gap=2,bw=3,n=Math.max(8,Math.floor((w+gap)/(bw+gap))),pal=palOf(r).stops,g=c.createLinearGradient(0,0,w,0);pal.forEach((col,i)=>g.addColorStop(pal.length>1?i/(pal.length-1):0,mixHex(col,'#FFF6E4',.38)));
+ const pk=r.peaks||[],gap=2,bw=3,n=Math.max(8,Math.floor((w+gap)/(bw+gap))),pal=palOf(r).stops,g=c.createLinearGradient(0,0,w,0);pal.forEach((col,i)=>g.addColorStop(pal.length>1?i/(pal.length-1):0,col));
  for(let i=0;i<n;i++){let m=0;if(pk.length){const a=Math.floor(i/n*pk.length),z=Math.max(a+1,Math.floor((i+1)/n*pk.length));for(let j=a;j<z;j++)m=Math.max(m,pk[j]||0)}const hh=Math.max(3,Math.pow(m,.8)*h),x=i*(bw+gap),on=(i+.5)/n<=p&&p>0;
-  c.fillStyle=on?g:'rgba(243,238,226,.2)';rrect(c,x,(h-hh)/2,bw,hh,1.5);c.fill()}
- if(p>0&&p<1){c.save();c.shadowColor='rgba(255,236,200,.9)';c.shadowBlur=8;c.fillStyle='#FFF6E4';c.fillRect(Math.round(p*w)-1,0,2,h);c.restore()}}
+  c.fillStyle=on?g:'rgba(48,47,43,.16)';rrect(c,x,(h-hh)/2,bw,hh,1.5);c.fill()}
+ if(p>0&&p<1){c.save();c.shadowColor='rgba(47,74,64,.35)';c.shadowBlur=6;c.fillStyle='#2F4A40';c.fillRect(Math.round(p*w)-1,0,2,h);c.restore()}}
 window.addEventListener('resize',()=>{if(typeof HERO!=='undefined')heroWave(HERO.playing?(+($('#nowProg').style.width.replace('%',''))||0)/100:0)});
 function shellOf(r){const pal=palOf(r).stops,tint=pal[Math.min(1,pal.length-1)];return /^#[0-9a-f]{6}$/i.test(r.shellColor||'')?r.shellColor:mixHex('#CFCDC2',tint,.14)}
 function heroUI(){const r=HERO.list[HERO.sel];if(!r)return;
@@ -3437,6 +3437,19 @@ async function upgradePeaks(){for(const r of items.filter(x=>!x.peaks||x.peaks.l
 .shelf.ring img.ring-cv{width:100%;height:auto;aspect-ratio:300/340;display:block}
 .ring-floor{position:absolute;left:50%;top:calc(var(--ring-cy,45%) + var(--ring-fy,120px));width:var(--ring-fw,70%);height:var(--ring-fh,60px);transform:translateX(-50%);border-radius:50%;background:radial-gradient(closest-side,rgba(48,47,43,.16),rgba(48,47,43,0));pointer-events:none;list-style:none}
 .shelf.ring.spinning .cart,.shelf.ring.moved .cart{pointer-events:none}
+
+/* ===== 首頁播放列瘦身：圓環下方只留日期・毛孩、時間與細波形 ===== */
+#now.now{display:block;max-width:560px;margin:2px auto 0;padding:0 4px;border:none;border-radius:0;background:none;box-shadow:none}
+#now .now-tag,#now .now-ctl,#now .now-name,#now .now-story,#now #nowState{display:none}
+#now .now-main{background:none;box-shadow:none;padding:0;color:var(--ink);overflow:visible;border-radius:0}
+#now .now-main::after{display:none}
+#now .now-top{display:flex!important;flex-wrap:nowrap;justify-content:space-between;align-items:baseline;gap:12px}
+#now .now-head{min-width:0;flex-wrap:nowrap}#now .now-meta{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#now .now-head{flex:1 1 auto!important}#now .now-info{flex:none;width:auto!important}
+#now .now-meta{color:var(--ink-s);font-size:12.5px}
+#now .now-info{margin-left:auto;min-width:0}
+#now .now-info p#nowDur{margin:0;color:var(--ink);font-size:12.5px;letter-spacing:.08em}
+#now .now-wave{height:24px;margin-top:8px}
+.shelf.ring .cart.playing .cart-play{opacity:1;transform:scale(1)}
 </style>
 <script>
 /* 卡匣圓環：首頁陳列的卡匣排成一列後捲成立體圓環，可拖曳旋轉、點選的卡匣轉到正前方 */
